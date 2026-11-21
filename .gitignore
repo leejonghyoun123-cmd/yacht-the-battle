@@ -1,3 +1,45 @@
-# Godot 4+ specific ignores
+# ===== Godot 4 =====
+# 에디터 캐시·임포트 결과물 (자동 재생성됨)
 .godot/
+# 주의: *.import 파일은 임포트 설정을 담고 있으므로 Godot 4에서는 커밋한다 (제외하지 않음)
+
+# Godot 3 잔재 / 구버전 캐시
+.import/
+
+# 모노(C#) 사용 시 생성물
+.mono/
+data_*/
+mono_crash.*.json
+
+# ===== 빌드 산출물 =====
+/build/
+/builds/
+/export/
+/exports/
+*.pck
+*.exe
+*.apk
+*.aab
+*.zip
+# 익스포트 프리셋은 로컬 경로·키스토어 비밀번호가 들어갈 수 있으므로 제외
+export_credentials.cfg
 /android/
+
+# ===== OS 임시 파일 =====
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+desktop.ini
+$RECYCLE.BIN/
+*~
+*.tmp
+*.swp
+
+# ===== 에디터 / 도구 =====
+.vscode/
+.idea/
+*.code-workspace
+
+# Claude Code 로컬 설정 (개인 권한 설정)
+.claude/settings.local.json
