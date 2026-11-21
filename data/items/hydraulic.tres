@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="HydraulicItem" format=3]
+
+[ext_resource type="Script" path="res://core/data/items/hydraulic_item.gd" id="1_xtj55"]
+
+[resource]
+script = ExtResource("1_xtj55")
+id = &"hydraulic"
+display_name = "유압 압축기"
+description = "내 팀 정예 압축 기준 50 → 25명, 압축 스탯 ×1.15."
+rank = 2
+icon_text = "압축"
+stackable = false

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="TarotCardData" format=3]
+
+[ext_resource type="Script" path="res://core/data/tarot_card_data.gd" id="1_wsk8w"]
+
+[resource]
+script = ExtResource("1_wsk8w")
+id = &"lovers"
+display_name = "더 러버"
+numeral = 6
+description = "[두 칸 연결] 한쪽 칸에 생존자가 있으면 다른 칸 유닛이 매초 최대 체력 3% 회복 (서로)."
+cells_required = 2

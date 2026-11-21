@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="TarotCardData" format=3]
+
+[ext_resource type="Script" path="res://core/data/tarot_card_data.gd" id="1_d3l84"]
+
+[resource]
+script = ExtResource("1_d3l84")
+id = &"death"
+display_name = "데스"
+numeral = 13
+description = "[2인 전용] 내 체력 X를 깎아 상대 본체에 상한 무시 고정 피해 X (자살 불가)."
+rank = 2
+category = 3
+mode_restriction = 1

@@ -131,3 +131,17 @@ func _reset_round_state() -> void:
 	held.fill(false)
 	recorded_category = -1
 	recorded_gold = 0
+
+
+## 주사위 1개만 새로 굴려 결과 갱신 (무단 침입 통행증 교체). 재굴림 횟수는 쓰지 않는다.
+func reroll_single(index: int) -> void:
+	if phase != Phase.ROLLING or index < 0 or index >= results.size():
+		return
+	var keep: Array[bool] = []
+	for i: int in range(results.size()):
+		keep.append(i != index)
+	held[index] = false
+	roll_modifiers["bench_count"] = deck.get_bench_count()
+	results = DiceRollResolver.resolve(deck.active, rng, round_number, keep, results, roll_modifiers)
+	rolled.emit(results)
+	changed.emit()

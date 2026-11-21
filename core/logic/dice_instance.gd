@@ -17,6 +17,8 @@ var trait_data: DiceTraitData = null
 
 const STATE_FACE_WEIGHTS: String = "face_weights"
 const STATE_REVERSE_SLOTS: String = "reverse_slots"
+## 사포와펜: [Vector2i(지운 면, 새긴 숫자)]
+const STATE_FACE_REPLACE: String = "face_replace"
 
 
 func _init(p_data: DiceData) -> void:
@@ -85,6 +87,10 @@ func _build_faces(ctx: RollContext, disabled_slot_indices: Array[int]) -> Array[
 	var faces: Array[int] = data.faces.duplicate()
 	if trait_data != null:
 		faces = trait_data.modify_base_faces(faces, self)
+	for rep: Vector2i in runtime_state.get(STATE_FACE_REPLACE, []):
+		for k: int in range(faces.size()):
+			if faces[k] == rep.x:
+				faces[k] = rep.y
 	if faces.is_empty():
 		faces = [1]
 	var immune: bool = ctx != null and ctx.immune_to_boss_gimmicks

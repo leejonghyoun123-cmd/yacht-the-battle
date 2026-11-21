@@ -172,3 +172,24 @@ func add_slot_modifier(cell_index: int, mod: StatModifier) -> void:
 
 func get_slot_modifiers(cell_index: int) -> Array:
 	return slot_modifiers.get(cell_index, [])
+
+
+## 더 러버 칸 연결 (중앙 관리, 칸끼리 서로 참조하지 않음)
+var slot_links: Array[Vector2i] = []
+
+
+func add_link(a: int, b: int) -> bool:
+	if a == b or a < 0 or b < 0 or a >= CELL_COUNT or b >= CELL_COUNT:
+		return false
+	slot_links.append(Vector2i(mini(a, b), maxi(a, b)))
+	board_changed.emit()
+	return true
+
+
+## 저지먼트: 칸 자리의 타로 버프와 그 칸이 낀 연결을 모두 해제
+func clear_slot_tarots(cell_index: int) -> void:
+	slot_modifiers.erase(cell_index)
+	for i: int in range(slot_links.size() - 1, -1, -1):
+		if slot_links[i].x == cell_index or slot_links[i].y == cell_index:
+			slot_links.remove_at(i)
+	board_changed.emit()

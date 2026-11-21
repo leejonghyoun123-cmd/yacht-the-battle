@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="SandpaperItem" format=3]
+
+[ext_resource type="Script" path="res://core/data/items/sandpaper_item.gd" id="1_qoxkh"]
+
+[resource]
+script = ExtResource("1_qoxkh")
+id = &"sandpaper"
+display_name = "사포와펜"
+description = "고른 주사위의 숫자 1개를 지우고, 그 주사위의 다른 숫자 1개를 그 자리에 새긴다 (영구)."
+target = 1
+icon_text = "사포"

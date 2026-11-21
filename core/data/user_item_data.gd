@@ -106,3 +106,28 @@ func get_label(_item: ItemInstance) -> String:
 
 func get_state_text(_item: ItemInstance) -> String:
 	return ""
+
+
+## 정예 압축 규칙 변경 (유압 압축기) { "threshold": int, "bonus": float }
+func get_compression(_item: ItemInstance) -> Dictionary:
+	return {}
+
+
+## 첫 굴림 뒤에도 주사위 교체 허용 (무단 침입 통행증)
+func allows_rolling_swap(_item: ItemInstance) -> bool:
+	return false
+
+
+## 사용 시 고를 선택지 [{ "value", "label" }] (수정 테이프: 지울 얏츠판 칸). 비어 있으면 바로 사용.
+func get_choices(_item: ItemInstance, _session: GameSession) -> Array[Dictionary]:
+	return []
+
+
+## 대상 주사위에 적용할 때 단계별 선택지 (사포와펜: 지울 면 → 새길 숫자). picks = 지금까지 고른 값. 비면 선택 끝.
+func get_dice_choices(_dice: DiceInstance, _picks: Array) -> Array[Dictionary]:
+	return []
+
+
+## 선택지를 고른 사용 (기본: 선택 없이 activate)
+func activate_choice(item: ItemInstance, session: GameSession, _value: Variant) -> String:
+	return activate(item, session)

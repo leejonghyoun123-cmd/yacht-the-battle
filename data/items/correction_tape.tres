@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="CorrectionTapeItem" format=3]
+
+[ext_resource type="Script" path="res://core/data/items/correction_tape_item.gd" id="1_s0fkf"]
+
+[resource]
+script = ExtResource("1_s0fkf")
+id = &"correction_tape"
+display_name = "수정 테이프"
+description = "1회용: 기록한 얏츠판 칸 1개를 미기록으로 되돌린다."
+icon_text = "지움"

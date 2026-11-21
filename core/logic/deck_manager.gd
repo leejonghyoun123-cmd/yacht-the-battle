@@ -302,3 +302,18 @@ func _place_anywhere(e: EnchantInstance) -> bool:
 ## 가방에 들어 있는 주사위 수 (벤치 응원봉)
 func get_bench_count() -> int:
 	return reserve_filled_indices().size()
+
+
+## 잠금 무시 교체 (무단 침입 통행증 전용). 들어온 주사위도 이번 라운드에 굴린 것으로 잠근다.
+func force_swap(active_index: int, reserve_index: int) -> bool:
+	if active_index < 0 or active_index >= active.size():
+		return false
+	if reserve_index < 0 or reserve_index >= reserve_unlocked or reserve[reserve_index] == null:
+		return false
+	var temp: DiceInstance = active[active_index]
+	active[active_index] = reserve[reserve_index]
+	reserve[reserve_index] = temp
+	if is_deck_locked and not rolled_dice.has(active[active_index]):
+		rolled_dice.append(active[active_index])
+	deck_changed.emit()
+	return true

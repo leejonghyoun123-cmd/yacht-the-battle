@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="TrespassItem" format=3]
+
+[ext_resource type="Script" path="res://core/data/items/trespass_item.gd" id="1_7lq68"]
+
+[resource]
+script = ExtResource("1_7lq68")
+id = &"trespass"
+display_name = "무단 침입 통행증"
+description = "라운드당 1회, 첫 굴림 뒤에도 출전 주사위 1개를 가방 주사위와 교체 (들어온 주사위는 바로 굴림)."
+icon_text = "출입"
+stackable = false

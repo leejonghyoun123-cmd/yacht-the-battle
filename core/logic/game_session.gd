@@ -360,6 +360,8 @@ func start_battle() -> BattleSimulation:
 		else:
 			battle_consumable_total = FixedNum.add(battle_consumable_total, p.temp_count)
 	battle.round_number = get_round()
+	battle.team_compression[0] = inventory.get_compression()
+	battle.team_links[0] = board.slot_links.duplicate()
 	battle.setup([mine, enemy.get_spawn_packets()], rng.randi())
 	# 예약한 전투 타로 + 설치한 더 타워
 	for card: TarotCardData in inventory.tarot_reserved:
@@ -456,8 +458,9 @@ func destroy_dice(dice: DiceInstance) -> void:
 # --- 유저 아이템 · 타로카드 -------------------------------------------------
 
 ## 아이템 획득 (상점·조커). 대상 주사위가 필요한 아이템은 target에 바로 적용하고 사라진다.
-func acquire_item(data: UserItemData, target: DiceInstance = null) -> String:
+func acquire_item(data: UserItemData, target: DiceInstance = null, picks: Array = []) -> String:
 	var inst: ItemInstance = ItemInstance.new(data)
+	inst.state["picks"] = picks
 	if data.target == UserItemData.Target.DICE:
 		if target == null or not data.can_apply_to(target):
 			return ""
@@ -478,10 +481,12 @@ func can_activate_item(inst: ItemInstance) -> bool:
 
 
 ## 능동 아이템 사용 (저금통 깨기)
-func activate_item(inst: ItemInstance) -> String:
+func activate_item(inst: ItemInstance, choice: Variant = null) -> String:
 	if not can_activate_item(inst):
 		return ""
-	var text: String = inst.data.activate(inst, self)
+	var text: String = inst.data.activate(inst, self) if choice == null else inst.data.activate_choice(inst, self, choice)
+	if text == "":
+		return ""
 	if inst.data.is_consumed_on_activate():
 		inventory.items.erase(inst)
 	inventory.changed.emit()
@@ -499,7 +504,7 @@ func acquire_tarot(card: TarotCardData) -> bool:
 
 
 ## 타로 사용 가능 여부 ("" = 가능). 유닛칸 카드는 cell_index 필요.
-func can_use_tarot(card: TarotCardData, cell_index: int = -1) -> String:
+func can_use_tarot(card: TarotCardData, cell_index: int = -1, cell_index_2: int = -1) -> String:
 	if not is_preparing():
 		return "준비 단계에서만 사용할 수 있습니다"
 	if not inventory.tarot_hand.has(card):
@@ -511,14 +516,16 @@ func can_use_tarot(card: TarotCardData, cell_index: int = -1) -> String:
 		TarotCardData.Category.CELL:
 			if cell_index < 0 or cell_index >= BoardState.CELL_COUNT:
 				return "버프를 줄 내 배치 칸을 고르세요"
+			if card.cells_required >= 2 and (cell_index_2 < 0 or cell_index_2 >= BoardState.CELL_COUNT or cell_index_2 == cell_index):
+				return "연결할 두 번째 칸을 고르세요 (서로 다른 칸)"
 		TarotCardData.Category.INTERFERE:
 			return "1인용에서는 쓸 수 없는 카드입니다"
 	return ""
 
 
 ## 타로 사용: 예약 / 즉시 설치 / 칸 지정
-func use_tarot(card: TarotCardData, cell_index: int = -1) -> String:
-	var reason: String = can_use_tarot(card, cell_index)
+func use_tarot(card: TarotCardData, cell_index: int = -1, cell_index_2: int = -1) -> String:
+	var reason: String = can_use_tarot(card, cell_index, cell_index_2)
 	if reason != "":
 		return reason
 	inventory.tarot_hand.erase(card)
@@ -533,10 +540,16 @@ func use_tarot(card: TarotCardData, cell_index: int = -1) -> String:
 				player.justice_shield_max += (card as JusticeTarot).shield
 				player.justice_shield += (card as JusticeTarot).shield
 		TarotCardData.Category.CELL:
-			board.add_slot_modifier(cell_index, card.cell_modifier)
-			if not inventory.cell_tarots.has(cell_index):
-				inventory.cell_tarots[cell_index] = [] as Array[TarotCardData]
-			(inventory.cell_tarots[cell_index] as Array).append(card)
+			var cells: Array[int] = [cell_index]
+			if card.cells_required >= 2:
+				board.add_link(cell_index, cell_index_2)
+				cells.append(cell_index_2)
+			elif card.cell_modifier != null:
+				board.add_slot_modifier(cell_index, card.cell_modifier)
+			for c: int in cells:
+				if not inventory.cell_tarots.has(c):
+					inventory.cell_tarots[c] = [] as Array[TarotCardData]
+				(inventory.cell_tarots[c] as Array).append(card)
 	inventory.changed.emit()
 	changed.emit()
 	return ""
@@ -575,3 +588,29 @@ func grant_random_tarot() -> String:
 	var pick: TarotCardData = pool[rng.randi_range(0, pool.size() - 1)]
 	acquire_tarot(pick)
 	return pick.display_name
+
+
+# --- 무단 침입 통행증 ---------------------------------------------------------
+
+## 첫 굴림 뒤(기록 전) 주사위 교체가 가능한가
+func can_trespass_swap() -> bool:
+	return phase == Phase.ROLLING and flow.phase == RoundFlow.Phase.ROLLING and inventory.get_rolling_swap_item() != null \
+		and not deck.reserve_filled_indices().is_empty()
+
+
+## 굴림 중 교체: 들어온 주사위는 바로 1번 굴려 결과를 채운다 (재굴림 횟수 소모 없음)
+func trespass_swap(active_index: int, reserve_index: int) -> bool:
+	if not can_trespass_swap():
+		return false
+	var item: ItemInstance = inventory.get_rolling_swap_item()
+	if not deck.force_swap(active_index, reserve_index):
+		return false
+	item.state[TrespassItem.STATE_USED_ROUND] = get_round()
+	flow.reroll_single(active_index)
+	inventory.changed.emit()
+	changed.emit()
+	return true
+
+
+func get_compression_threshold() -> int:
+	return int(inventory.get_compression().get("threshold", BattleRules.get_compression_threshold()))

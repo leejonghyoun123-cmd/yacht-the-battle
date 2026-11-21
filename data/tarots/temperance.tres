@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="TarotCardData" format=3]
+
+[ext_resource type="Script" path="res://core/data/tarot_card_data.gd" id="1_iml75"]
+
+[resource]
+script = ExtResource("1_iml75")
+id = &"temperance"
+display_name = "템퍼런스"
+numeral = 14
+description = "[2인 전용] 이번 전투에 한해 내 칸 1개와 상대 칸 1개를 평균 상태로 맞춘다."
+category = 3
+mode_restriction = 1

@@ -62,3 +62,24 @@ func remove_expired() -> void:
 		if bool(items[i].state.get("expired", false)):
 			items.remove_at(i)
 	changed.emit()
+
+
+## 내 팀 정예 압축 규칙 (유압 압축기). 여러 개면 가장 낮은 기준·가장 높은 보정
+func get_compression() -> Dictionary:
+	var out: Dictionary = {}
+	for it: ItemInstance in items:
+		var c: Dictionary = it.data.get_compression(it)
+		if c.is_empty():
+			continue
+		if not out.has("threshold") or int(c["threshold"]) < int(out["threshold"]):
+			out["threshold"] = c["threshold"]
+		out["bonus"] = maxf(float(out.get("bonus", 0.0)), float(c["bonus"]))
+	return out
+
+
+## 지금 쓸 수 있는 무단 침입 통행증 (없으면 null)
+func get_rolling_swap_item() -> ItemInstance:
+	for it: ItemInstance in items:
+		if it.data.allows_rolling_swap(it):
+			return it
+	return null

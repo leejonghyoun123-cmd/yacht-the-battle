@@ -262,7 +262,7 @@ static func _trait_requirement(t: DiceTraitData) -> String:
 
 
 ## 구매. 인첸트는 target_dice / target_slot(빈 슬롯) 지정 필수.
-func buy(offer: ShopOffer, target_dice: DiceInstance = null, target_slot: int = -1) -> String:
+func buy(offer: ShopOffer, target_dice: DiceInstance = null, target_slot: int = -1, picks: Array = []) -> String:
 	var reason: String = can_buy(offer)
 	if reason != "":
 		return reason
@@ -286,7 +286,7 @@ func buy(offer: ShopOffer, target_dice: DiceInstance = null, target_slot: int = 
 			if offer.item_data.target == UserItemData.Target.DICE and (target_dice == null or not get_item_targets(offer.item_data).has(target_dice)):
 				return "이 주사위에는 쓸 수 없습니다"
 			player.spend_gold(offer.price)
-			last_message = String(acquire_item_cb.call(offer.item_data, target_dice))
+			last_message = String(acquire_item_cb.call(offer.item_data, target_dice, picks))
 		ShopOffer.Kind.DICE:
 			player.spend_gold(offer.price)
 			deck.add_to_reserve(DiceInstance.new(offer.dice_data))

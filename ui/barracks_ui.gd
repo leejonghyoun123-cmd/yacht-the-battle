@@ -46,6 +46,9 @@ var _pending_action: Callable = Callable()
 var _gear_box: VBoxContainer
 ## 칸을 지정해야 하는 타로를 고른 상태
 var _tarot_pending: TarotCardData = null
+## 두 칸을 잇는 타로(더 러버)의 첫 번째 칸
+var _tarot_first_cell: int = -1
+var _choice_popup: Control
 
 
 func _ready() -> void:
@@ -482,8 +485,14 @@ func _on_cell_clicked(cell_index: int) -> void:
 		return
 	if _tarot_pending != null:
 		var card: TarotCardData = _tarot_pending
+		if card.cells_required >= 2 and _tarot_first_cell < 0:
+			_tarot_first_cell = cell_index
+			_message.text = "[%s] 연결할 두 번째 칸을 클릭하세요" % card.display_name
+			return
 		_tarot_pending = null
-		var reason: String = session.use_tarot(card, cell_index)
+		var first: int = _tarot_first_cell
+		_tarot_first_cell = -1
+		var reason: String = session.use_tarot(card, first, cell_index) if card.cells_required >= 2 else session.use_tarot(card, cell_index)
 		_message.text = reason if reason != "" else "%s → %s 칸에 영구 부여!" % [card.display_name, ["후열", "중열", "전열"][BoardState.row_of(cell_index)]]
 		if reason == "" and view != null:
 			view.call("play_cell_spawn", cell_index)
@@ -651,9 +660,7 @@ func _build_gear() -> void:
 		if it.data.can_activate(it):
 			var use: Button = UiKit.button(it.data.get_activate_label(), 11)
 			use.disabled = not session.can_activate_item(it)
-			use.pressed.connect(func() -> void:
-				_message.text = session.activate_item(it)
-				refresh.call_deferred())
+			use.pressed.connect(func() -> void: _on_item_use(it))
 			box.add_child(use)
 		grid.add_child(box)
 
@@ -682,7 +689,8 @@ func _on_tarot_pressed(card: TarotCardData) -> void:
 			_message.text = "타로 지정을 취소했습니다"
 		else:
 			_tarot_pending = card
-			_message.text = "[%s] 버프를 줄 내 배치 칸을 클릭하세요 (칸 자리에 영구 귀속)" % card.display_name
+			_message.text = ("[%s] 연결할 첫 번째 칸을 클릭하세요" if card.cells_required >= 2 else "[%s] 버프를 줄 내 배치 칸을 클릭하세요 (칸 자리에 영구 귀속)") % card.display_name
+		_tarot_first_cell = -1
 		refresh.call_deferred()
 		return
 	var verb: String = "전투에 예약" if card.category == TarotCardData.Category.RESERVE else "설치"
@@ -690,3 +698,23 @@ func _on_tarot_pressed(card: TarotCardData) -> void:
 		var reason: String = session.use_tarot(card)
 		_message.text = reason if reason != "" else "%s %s 완료" % [card.display_name, verb]
 		refresh.call_deferred())
+
+
+func _on_item_use(it: ItemInstance) -> void:
+	var choices: Array[Dictionary] = it.data.get_choices(it, session)
+	if choices.is_empty():
+		if it.data is CorrectionTapeItem:
+			_message.text = "지울 얏츠판 기록이 없습니다"
+			return
+		_message.text = session.activate_item(it)
+		refresh.call_deferred()
+		return
+	if _choice_popup == null:
+		_choice_popup = (load("res://ui/widgets/choice_popup.gd") as GDScript).new()
+		add_child(_choice_popup)
+	for c: Dictionary in _choice_popup.get_signal_connection_list("chosen"):
+		_choice_popup.disconnect("chosen", c["callable"])
+	_choice_popup.connect("chosen", func(v: Variant) -> void:
+		_message.text = session.activate_item(it, v)
+		refresh.call_deferred(), CONNECT_ONE_SHOT)
+	_choice_popup.call("open", "[%s] 고르세요" % it.data.display_name, choices)

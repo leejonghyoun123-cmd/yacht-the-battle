@@ -51,7 +51,10 @@ const TAROT_PATHS: Array[String] = [
 	"res://data/tarots/justice.tres", "res://data/tarots/magician.tres", "res://data/tarots/high_priestess.tres",
 	"res://data/tarots/empress.tres", "res://data/tarots/emperor.tres", "res://data/tarots/hierophant.tres",
 	"res://data/tarots/chariot.tres", "res://data/tarots/strength.tres", "res://data/tarots/hermit.tres",
-	"res://data/tarots/wheel.tres", "res://data/tarots/hanged_man.tres",
+	"res://data/tarots/wheel.tres", "res://data/tarots/hanged_man.tres", "res://data/tarots/lovers.tres",
+	# 상대 간섭·2인 전용 (1인용 풀에서는 자동 제외)
+	"res://data/tarots/judgement.tres", "res://data/tarots/devil.tres", "res://data/tarots/death.tres",
+	"res://data/tarots/temperance.tres",
 ]
 ## 상점 아이템 칸에 나올 수 있는 유저 아이템 (식량·성벽은 상시 칸)
 const ITEM_PATHS: Array[String] = [
@@ -61,7 +64,8 @@ const ITEM_PATHS: Array[String] = [
 	"res://data/items/last_digit_washer.tres", "res://data/items/empty_slot.tres", "res://data/items/bench_cheer.tres",
 	"res://data/items/dice_mirror.tres", "res://data/items/piggy_bank.tres", "res://data/items/dice_piggy_bank.tres",
 	"res://data/items/loan_shark.tres", "res://data/items/hand_forgery.tres", "res://data/items/insurance.tres",
-	"res://data/items/barracks_copier.tres",
+	"res://data/items/barracks_copier.tres", "res://data/items/hydraulic.tres", "res://data/items/trespass.tres",
+	"res://data/items/correction_tape.tres", "res://data/items/sandpaper.tres",
 ]
 const DICE_DIR: String = "res://data/dice/"
 

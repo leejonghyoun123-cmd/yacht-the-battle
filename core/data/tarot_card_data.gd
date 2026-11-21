@@ -22,6 +22,8 @@ enum Rank { C, B, A, S }
 @export var mode_restriction: ModeRestriction = ModeRestriction.ALL
 ## CELL: 칸 유닛에 붙는 보정
 @export var cell_modifier: StatModifier = null
+## CELL: 지정할 칸 수 (더 러버 = 2칸 연결)
+@export var cells_required: int = 1
 @export var min_unlock_round: int = 1
 
 

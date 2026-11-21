@@ -263,7 +263,8 @@ func _make_active_token(index: int) -> Control:
 	var value_text: String = "" if result == null else "→ %s명" % NumberFormatter.format_num(result.summon_value)
 	var token: Control = DieToken.new()
 	token.call("setup", dice, face, value_text, Color("ffe08a"),
-		flow.phase == RoundFlow.Phase.PREP, deck.can_edit() and not deck.reserve_filled_indices().is_empty() and not _swap_mode,
+		flow.phase == RoundFlow.Phase.PREP or session.can_trespass_swap(),
+		(deck.can_edit() and not deck.reserve_filled_indices().is_empty() and not _swap_mode) or session.can_trespass_swap(),
 		not deck.can_edit_dice(dice), border, _sel_slot if dice == _sel_dice else -1, false, tooltip)
 	token.set_meta("tooltip_text", _dice_tooltip(dice, result))
 	token.connect("pressed", func() -> void: _on_token_pressed(index))
@@ -509,7 +510,11 @@ func _start_swipe(active_index: int, reserve_index: int) -> void:
 		ghost_b.queue_free()
 		_swiping = false
 		_pick_swap_index = -1
-		deck.swap_slots(active_index, reserve_index)
+		if session.flow.phase == RoundFlow.Phase.PREP:
+			deck.swap_slots(active_index, reserve_index)
+		else:
+			# 무단 침입 통행증: 굴림 뒤 교체 → 들어온 주사위는 바로 굴림
+			session.trespass_swap(active_index, reserve_index)
 		refresh())
 
 

@@ -154,7 +154,7 @@ func _items() -> void:
 	_item(weighted, &"weighted_dice", "속임 무게추", "⚖", B, 50, "고른 주사위의 가장 큰 면이 나올 확률이 3배가 된다 (영구).")
 	_item(LoveFiftyItem.new(), &"love_fifty", "50이좋아", "50", B, 10, "지정 눈금(획득 시 1~6 중 결정)이 나오면 연산 시작값을 50으로.")
 	_item(ConditionalMathItem.new(), &"conditional_math", "+? 곱?", "+×", C, 20, "지정 눈금이 나오면 +10 또는 ×2 (획득 시 결정).")
-	_item(FeastItem.new(), &"feast", "?의 향연", "?", C, 30, "지정 눈금이 나오면 보너스 1개:\n이번 굴림 ×2 / 확정 시 +60원 / 확정 시 실드 +25.")
+	_item(FeastItem.new(), &"feast", "?의 향연", "향연", C, 30, "지정 눈금이 나오면 보너스 1개:\n이번 굴림 ×2 / 확정 시 +60원 / 확정 시 실드 +25.")
 	var reverse: ReverseGearItem = ReverseGearItem.new()
 	reverse.target = UserItemData.Target.DICE
 	_item(reverse, &"reverse_gear", "역방향 기어", "⇄", C, 50, "고른 주사위의 인첸트를 5→1 역순으로 연산 (영구).")

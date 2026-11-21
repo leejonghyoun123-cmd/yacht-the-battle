@@ -84,3 +84,9 @@
 - GDScript에서 get_stack은 내장 함수라 메서드 이름으로 쓰면 파싱 오류. perl 치환으로 "\n"을 넣으면 실제 줄바꿈이 들어가 문자열이 깨진다 — 문자열 속 \n은 Edit 도구로 넣는다.
 - 주사위 아이콘은 ItemIcon.setup_dice(주사위, 눈금글자): 2면 = 동전, 포커카드 = 트럼프 카드(수트는 도형으로 그림). 대상 주사위 선택은 DicePickOverlay(검은 40% + 변환 연출).
 - 테스트 추가: test_content_v2(64).
+- 팀별 정예 압축: BattleSimulation.team_compression[team] (유압 압축기). 공용 BattleRules.compression_threshold는 바꾸지 않는다 (적에게도 적용되므로).
+- 무단 침입 통행증: GameSession.trespass_swap → DeckManager.force_swap + RoundFlow.reroll_single(재굴림 횟수 소모 없음). 더 러버 연결은 BoardState.slot_links(중앙 관리) → BattleSimulation.team_links.
+- 상대 간섭 타로 4종은 PvpTarotRules(두 GameSession 사이 순수 로직) — 친선전 연결 시 호출. 1인용 풀에서는 제외.
+- 단계 선택은 ChoicePopup(사포와펜: 지울 숫자 → 새길 숫자, 수정 테이프: 지울 칸). UserItemData.get_choices / get_dice_choices.
+- 스크린샷 스크립트는 `timeout 90`으로 감싸고 로그를 파일로 받는다 (스크립트 오류 시 멈춰서 끝나지 않음).
+- 테스트 추가: test_content_v3(41).

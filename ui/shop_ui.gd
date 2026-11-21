@@ -10,6 +10,7 @@ signal back_requested
 const ItemIcon: GDScript = preload("res://ui/widgets/item_icon.gd")
 const DiceBar: GDScript = preload("res://ui/widgets/dice_bar.gd")
 const DicePickOverlay: GDScript = preload("res://ui/widgets/dice_pick_overlay.gd")
+const ChoicePopup: GDScript = preload("res://ui/widgets/choice_popup.gd")
 
 var session: GameSession
 var tooltip: Node
@@ -24,6 +25,10 @@ var _dice_bar: VBoxContainer
 var _pending_offer: ShopOffer = null
 var _confirm: ConfirmationDialog
 var _pick_overlay: Control
+var _choice_popup: Control
+## 대상 주사위 + 단계별 선택 중인 값 (사포와펜)
+var _pick_dice: DiceInstance = null
+var _pick_values: Array = []
 
 
 func _ready() -> void:
@@ -110,6 +115,17 @@ func _ready() -> void:
 	add_child(_pick_overlay)
 	_pick_overlay.connect("chosen", _on_pick_chosen)
 	_pick_overlay.connect("cancelled", func() -> void:
+		_pending_offer = null
+		_show_message("구매를 취소했습니다")
+		refresh())
+
+	_choice_popup = ChoicePopup.new()
+	add_child(_choice_popup)
+	_choice_popup.connect("chosen", func(v: Variant) -> void:
+		_pick_values.append(v)
+		_continue_pick())
+	_choice_popup.connect("cancelled", func() -> void:
+		_pick_overlay.call("close")
 		_pending_offer = null
 		_show_message("구매를 취소했습니다")
 		refresh())
@@ -289,12 +305,26 @@ func _on_offer_pressed(offer: ShopOffer) -> void:
 
 ## 선택창에서 주사위를 고름 → 구매 → 성공하면 변환 연출
 func _on_pick_chosen(dice: DiceInstance) -> void:
+	_pick_dice = dice
+	_pick_values = []
+	_continue_pick()
+
+
+## 주사위를 고른 뒤 단계별 선택지가 남아 있으면 팝업, 없으면 구매
+func _continue_pick() -> void:
 	var offer: ShopOffer = _pending_offer
-	_pending_offer = null
-	if offer == null:
+	var dice: DiceInstance = _pick_dice
+	if offer == null or dice == null:
 		_pick_overlay.call("close")
 		return
-	var result: String = session.shop.buy(offer, dice)
+	if offer.kind == ShopOffer.Kind.ITEM:
+		var choices: Array[Dictionary] = offer.item_data.get_dice_choices(dice, _pick_values)
+		if not choices.is_empty():
+			var step: String = "지울 숫자를 고르세요" if _pick_values.is_empty() else "그 자리에 새길 숫자를 고르세요"
+			_choice_popup.call("open", "[%s] %s" % [offer.title, step], choices)
+			return
+	_pending_offer = null
+	var result: String = session.shop.buy(offer, dice, -1, _pick_values)
 	if result != "":
 		_pick_overlay.call("close")
 		_show_message(result)

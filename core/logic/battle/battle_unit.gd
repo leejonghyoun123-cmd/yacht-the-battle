@@ -61,6 +61,8 @@ var shield_ratio: float = 0.0
 ## 남은 개인 실드 (피해를 먼저 흡수)
 var shield: float = 0.0
 var regen_ratio: float = 0.0
+## 더 러버 연결 회복 (오라 갱신 때 설정)
+var link_regen: float = 0.0
 var physical_mult: float = 1.0
 var magical_mult: float = 1.0
 var splash_damage_mult: float = 1.0
@@ -75,14 +77,14 @@ var burn_per_second: float = 0.0
 var burn_time: float = 0.0
 
 
-func setup(p_id: int, p_team: int, packet_cell: int, p_data: UnitData, p_ratio: float, p_consumable: bool, total_count: int = 0, mods: Array[StatModifier] = []) -> void:
+func setup(p_id: int, p_team: int, packet_cell: int, p_data: UnitData, p_ratio: float, p_consumable: bool, total_count: int = 0, mods: Array[StatModifier] = [], stat_bonus: float = 0.0) -> void:
 	id = p_id
 	team = p_team
 	cell_index = packet_cell
 	data = p_data
 	ratio = p_ratio
 	is_consumable = p_consumable
-	var mult: float = BattleRules.get_stat_multiplier(p_ratio)
+	var mult: float = BattleRules.get_stat_multiplier(p_ratio, stat_bonus)
 	max_hp = p_data.max_hp * mult
 	attack = p_data.attack * mult
 	attack_interval = p_data.attack_interval

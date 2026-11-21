@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="TarotCardData" format=3]
+
+[ext_resource type="Script" path="res://core/data/tarot_card_data.gd" id="1_qkqju"]
+
+[resource]
+script = ExtResource("1_qkqju")
+id = &"judgement"
+display_name = "저지먼트"
+numeral = 20
+description = "[상대 칸 지정] 그 칸의 타로 영구 버프·연결을 모두 해제. (친선전 전용 — 1인용 적은 타로가 없음)"
+category = 3

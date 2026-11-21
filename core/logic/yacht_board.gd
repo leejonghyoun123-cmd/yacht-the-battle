@@ -175,3 +175,15 @@ static func _longest_run_with_gap(counts: Array[int]) -> int:
 			elif missing <= 1:
 				best = maxi(best, end - start + 1)
 	return best
+
+
+static func category_name(category: int) -> String:
+	return String(CATEGORY_NAMES.get(category, "?"))
+
+
+## 기록 취소 (수정 테이프). 기록돼 있던 칸이면 true
+func unrecord(category: int) -> bool:
+	if not recorded.has(category):
+		return false
+	recorded.erase(category)
+	return true

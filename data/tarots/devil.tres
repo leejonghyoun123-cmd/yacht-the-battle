@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="TarotCardData" format=3]
+
+[ext_resource type="Script" path="res://core/data/tarot_card_data.gd" id="1_kxqod"]
+
+[resource]
+script = ExtResource("1_kxqod")
+id = &"devil"
+display_name = "더 데빌"
+numeral = 15
+description = "[2인 전용] 나와 상대의 주사위 중 각자 무작위 1개 파괴 (5개 이하면 기본 6면으로 초기화)."
+category = 3
+mode_restriction = 1

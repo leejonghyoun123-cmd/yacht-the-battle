@@ -45,6 +45,10 @@ var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var round_number: int = 1
 ## 전투 타로: [{ "card": TarotCardData, "team": int, "state": Dictionary }]
 var tarot_entries: Array[Dictionary] = []
+## 팀별 정예 압축 규칙 (유압 압축기) [{ "threshold": int, "bonus": float }] — setup 전에 설정
+var team_compression: Array[Dictionary] = [{}, {}]
+## 팀별 더 러버 칸 연결 [Array[Vector2i]]
+var team_links: Array = [[], []]
 var _grids: Array[Dictionary] = [{}, {}]
 var _aura_timer: float = 0.0
 
@@ -62,7 +66,7 @@ func setup(team_packets: Array, seed_value: int) -> void:
 		for packet: SpawnPacket in team_packets[team]:
 			if packet.unit_data == null or packet.total_count <= 0:
 				continue
-			var plan: Dictionary = BattleRules.get_spawn_plan(packet.total_count, packet.unit_data.is_giant, packet.unit_data.is_unique)
+			var plan: Dictionary = BattleRules.get_spawn_plan(packet.total_count, packet.unit_data.is_giant, packet.unit_data.is_unique, int(team_compression[team].get("threshold", 0)))
 			var spawn: int = plan["spawn"]
 			var ratio: float = plan["ratio"]
 			var offsets: Array[Vector2] = _formation_offsets(spawn, packet.unit_data.is_giant)
@@ -73,7 +77,7 @@ func setup(team_packets: Array, seed_value: int) -> void:
 				mods.append((m as RandomStatModifier).resolve(_rng) if m is RandomStatModifier else m)
 			for i: int in range(spawn):
 				var u: BattleUnit = BattleUnit.new()
-				u.setup(next_id, team, packet.cell_index, packet.unit_data, ratio, packet.is_consumable, packet.total_count, mods)
+				u.setup(next_id, team, packet.cell_index, packet.unit_data, ratio, packet.is_consumable, packet.total_count, mods, float(team_compression[team].get("bonus", 0.0)))
 				u.home = center + offsets[i]
 				# 연병장 안에서는 배치한 칸대로 정렬해 서 있다가 → 좁은 문으로 우르르 몰려나가 → 필드에서 다시 정렬
 				u.pos = barracks_cell_center(team, packet.cell_index) + offsets[i]
@@ -382,6 +386,7 @@ func _update_auras() -> void:
 		u.buff_damage_taken_mult = 1.0
 		u.buff_haste_mult = 1.0
 		u.share_targets.clear()
+		u.link_regen = 0.0
 	for healer: BattleUnit in units:
 		if not healer.alive or healer.support_radius <= 0.0 or healer.data.is_unique:
 			continue
@@ -392,6 +397,8 @@ func _update_auras() -> void:
 			if ally.team == healer.team and ally.alive and ally.pos.distance_squared_to(healer.pos) <= radius_sq:
 				ally.aura_attack = maxf(ally.aura_attack, healer.aura_attack_bonus)
 				ally.aura_defense = maxf(ally.aura_defense, healer.aura_defense_bonus)
+	# 더 러버: 연결된 칸에 생존자가 있으면 상대 칸 유닛이 매초 회복
+	_update_links()
 	# 킹 장판: 범위 안 아군 공격력·방어·공속 곱배수 버프, 피해 분담 명단 작성
 	for king: BattleUnit in units:
 		if not king.alive or not king.data.is_unique or king.support_radius <= 0.0:
@@ -528,8 +535,8 @@ func _finish(winner: int, reason: String) -> void:
 func _tick_status(u: BattleUnit, dt: float) -> void:
 	if u.immune_time > 0.0:
 		u.immune_time = maxf(0.0, u.immune_time - dt)
-	if u.regen_ratio > 0.0 and u.hp < u.max_hp:
-		u.heal(u.max_hp * u.regen_ratio * dt)
+	if (u.regen_ratio + u.link_regen) > 0.0 and u.hp < u.max_hp:
+		u.heal(u.max_hp * (u.regen_ratio + u.link_regen) * dt)
 	if u.burn_time > 0.0:
 		u.burn_time -= dt
 		_apply_damage(u, u.burn_per_second * dt)
@@ -616,3 +623,20 @@ func nearest_enemy_to(team: int, from: Vector2, exclude: Array[BattleUnit]) -> B
 func void_battle() -> void:
 	if phase != Phase.ENDED:
 		_finish(BattleResult.DRAW, "void")
+
+
+func _update_links() -> void:
+	for team: int in range(TEAM_COUNT):
+		var links: Array = team_links[team]
+		if links.is_empty():
+			continue
+		var alive_cells: Dictionary = {}
+		for u: BattleUnit in units:
+			if u.alive and u.team == team:
+				alive_cells[u.cell_index] = true
+		for link: Vector2i in links:
+			for u: BattleUnit in units:
+				if not u.alive or u.team != team:
+					continue
+				if (u.cell_index == link.x and alive_cells.has(link.y)) or (u.cell_index == link.y and alive_cells.has(link.x)):
+					u.link_regen = BattleRules.LINK_REGEN_RATIO
