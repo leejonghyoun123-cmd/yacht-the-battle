@@ -8,5 +8,6 @@ amount = 2
 id = &"hand_drill"
 display_name = "핸드드릴"
 description = "고른 주사위의 인첸트 슬롯 +2 (최대 5칸)."
+price_override = 350
 target = 1
 icon_text = "+2칸"

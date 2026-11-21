@@ -148,6 +148,7 @@ func _items() -> void:
 	var drill: SlotExpandItem = SlotExpandItem.new()
 	drill.amount = 2
 	drill.target = UserItemData.Target.DICE
+	drill.price_override = 350
 	_item(drill, &"hand_drill", "핸드드릴", "+2칸", B, 50, "고른 주사위의 인첸트 슬롯 +2 (최대 5칸).")
 	var weighted: WeightedDiceItem = WeightedDiceItem.new()
 	weighted.target = UserItemData.Target.DICE

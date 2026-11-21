@@ -632,7 +632,7 @@ func _build_hud() -> void:
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(root)
 
-	# 상단 한 줄: 왼쪽 = 라운드·골드·체력·병력 / 가운데 = 전투 진행·타이머 / 오른쪽 끝 = 배속·스킵
+	# 상단 한 줄: 왼쪽 = 라운드·골드·체력·병력 / 가운데 = 전투 진행·타이머 / 오른쪽 끝 = 배속
 	var margin: MarginContainer = MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -681,11 +681,7 @@ func _build_hud() -> void:
 		b.pressed.connect(set_speed.bind(s))
 		speed_box.add_child(b)
 		_speed_buttons.append(b)
-	var skip: Button = Button.new()
-	skip.text = "전투 스킵 ▶▶"
-	skip.focus_mode = Control.FOCUS_NONE
-	skip.pressed.connect(skip_to_end)
-	speed_box.add_child(skip)
+	# (전투 스킵 버튼은 삭제 — skip_to_end()는 테스트·디버그용으로 남겨 둠)
 
 	_result_panel = PanelContainer.new()
 	_result_panel.set_anchors_preset(Control.PRESET_CENTER)

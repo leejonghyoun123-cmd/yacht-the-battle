@@ -12,6 +12,8 @@ enum Target { NONE, DICE }
 @export var display_name: String = ""
 @export_multiline var description: String = ""
 @export var rank: Rank = Rank.B
+## 0보다 크면 등급 가격 대신 이 가격 (예: 핸드드릴 350원)
+@export var price_override: int = 0
 @export var priority: int = 50
 @export var target: Target = Target.NONE
 ## 아이콘 글자

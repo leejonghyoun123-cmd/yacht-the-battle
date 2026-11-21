@@ -137,6 +137,8 @@ static func tarot_price(data: TarotCardData) -> int:
 
 
 static func item_price(data: UserItemData) -> int:
+	if data.price_override > 0:
+		return data.price_override
 	return GameBalance.ITEM_PRICE_BY_RANK[clampi(int(data.rank), 0, GameBalance.ITEM_PRICE_BY_RANK.size() - 1)]
 
 

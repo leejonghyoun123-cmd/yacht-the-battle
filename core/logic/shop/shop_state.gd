@@ -13,6 +13,8 @@ const TRAIT_OFFER_COUNT: int = 2
 const RANK_NAMES: Array[String] = ["C", "B", "A", "S"]
 ## 굴린 뒤 기록 전에는 굴린 주사위의 인첸트를 바꿀 수 없다
 const ROLLING_ENCHANT_MESSAGE: String = "주사위를 굴리는도중엔 인첸트를 변경할수없습니다"
+## 골드가 모자랄 때 구매·리롤이 돌려주는 사유 (UI는 이 값을 보고 화면 가운데 크게 띄운다)
+const GOLD_SHORT_MESSAGE: String = "골드가 부족합니다"
 const SPECIAL_OFFER_COUNT: int = 2
 const ENCHANT_OFFER_COUNT: int = 3
 
@@ -69,7 +71,7 @@ var reroll_count: int = 0
 func reroll() -> String:
 	if not free_reroll:
 		if not player.spend_gold(get_reroll_cost()):
-			return "골드가 부족합니다"
+			return GOLD_SHORT_MESSAGE
 		reroll_count += 1
 	else:
 		free_reroll = false
@@ -202,7 +204,7 @@ func can_buy(offer: ShopOffer) -> String:
 	if offer.sold:
 		return "이미 판매된 상품입니다"
 	if not player.can_afford(offer.price):
-		return "골드가 부족합니다"
+		return GOLD_SHORT_MESSAGE
 	match offer.kind:
 		ShopOffer.Kind.FOOD:
 			if player.max_hp >= GameBalance.MAX_HP_CAP:

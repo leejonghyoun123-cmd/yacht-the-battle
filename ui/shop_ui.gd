@@ -21,7 +21,11 @@ var tooltip: Node
 
 var _row1: HBoxContainer
 var _row2: HBoxContainer
-var _message: Label
+## 화면 가운데에 잠깐 뜨는 알림 (골드 부족은 크게, 그 외 실패·안내는 작게)
+var _toast: PanelContainer = null
+var _toast_tween: Tween = null
+const GOLD_SHORT_TEXT: String = "소지골드가 부족합니다."
+const TOAST_HOLD: float = 1.1
 var _sell_button: Button
 var _reroll_button: Button
 var _dice_bar: VBoxContainer
@@ -70,14 +74,6 @@ func _ready() -> void:
 	side.add_theme_constant_override("separation", 10)
 	main.add_child(side)
 	side.add_child(ShopSign.new())
-	var msg_panel: PanelContainer = UiKit.panel(Color(0.06, 0.08, 0.08, 0.85))
-	msg_panel.custom_minimum_size = Vector2(0, 92)
-	_message = UiKit.label("상품을 누르면 구매합니다.\n내 주사위·인첸트를 눌러 고른 뒤 [판매].", 14, UiConfig.COLOR_ACCENT)
-	_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_message.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	msg_panel.add_child(_message)
-	side.add_child(msg_panel)
 	var spacer: Control = Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	side.add_child(spacer)
@@ -92,7 +88,7 @@ func _ready() -> void:
 	_reroll_button = _big_button("리롤", UiConfig.COLOR_REROLL)
 	_reroll_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_reroll_button.custom_minimum_size = Vector2(0, 76)
-	_reroll_button.pressed.connect(func() -> void: _show_message(_result_text(session.shop.reroll(), "새 상품이 진열되었습니다")))
+	_reroll_button.pressed.connect(func() -> void: _show_message(session.shop.reroll()))
 	money_row.add_child(_reroll_button)
 	var back: Button = _big_button("돌아가기", UiConfig.COLOR_BACK)
 	back.custom_minimum_size = Vector2(0, 84)
@@ -152,7 +148,6 @@ func _ready() -> void:
 	_pick_overlay.connect("chosen", _on_pick_chosen)
 	_pick_overlay.connect("cancelled", func() -> void:
 		_pending_offer = null
-		_show_message("구매를 취소했습니다")
 		refresh())
 
 	_choice_popup = ChoicePopup.new()
@@ -163,7 +158,6 @@ func _ready() -> void:
 	_choice_popup.connect("cancelled", func() -> void:
 		_pick_overlay.call("close")
 		_pending_offer = null
-		_show_message("구매를 취소했습니다")
 		refresh())
 
 	_confirm = ConfirmationDialog.new()
@@ -386,7 +380,6 @@ func _offer_tooltip(offer: ShopOffer) -> String:
 func _on_offer_pressed(offer: ShopOffer) -> void:
 	if offer == _pending_offer:
 		_cancel_buy_mode()
-		_show_message("구매를 취소했습니다")
 		return
 	var reason: String = session.shop.can_buy(offer)
 	if reason != "":
@@ -407,9 +400,8 @@ func _on_offer_pressed(offer: ShopOffer) -> void:
 		_pick_overlay.call("open", "[%s] %s 주사위를 고르세요" % [offer.title, verb], session.shop.get_offer_targets(offer), session.deck)
 		return
 	var result: String = session.shop.buy(offer)
-	var note: String = session.shop.last_message
 	session.shop.last_message = ""
-	_show_message(_result_text(result, note if note != "" else "%s 구매!" % offer.title))
+	_show_message(result)
 
 
 ## 선택창에서 주사위를 고름 → 구매 → 성공하면 변환 연출
@@ -442,9 +434,7 @@ func _continue_pick() -> void:
 	if offer.kind == ShopOffer.Kind.TRAIT and dice.trait_data is PokerTrait:
 		caption = "포커카드로 변환! (%s)" % (dice.trait_data as PokerTrait).get_state_text(dice)
 	_pick_overlay.call("play_transform", dice, caption)
-	var note: String = session.shop.last_message
 	session.shop.last_message = ""
-	_show_message(note if note != "" else caption)
 	refresh()
 
 
@@ -453,7 +443,7 @@ func _on_slot_target_chosen(dice: DiceInstance, slot: int) -> void:
 		return
 	var offer: ShopOffer = _pending_offer
 	_cancel_buy_mode()
-	_show_message(_result_text(session.shop.buy(offer, dice, slot), "%s 장착 완료!" % offer.title))
+	_show_message(session.shop.buy(offer, dice, slot))
 
 
 func _cancel_buy_mode() -> void:
@@ -473,7 +463,8 @@ func _on_sell_pressed() -> void:
 		return
 	if slot >= 0:
 		var gold: int = session.shop.sell_enchant(dice, slot)
-		_show_message("인첸트 판매 +%d원" % gold if gold >= 0 else session.shop.can_sell_enchant(dice, slot))
+		if gold < 0:
+			_show_message(session.shop.can_sell_enchant(dice, slot))
 		_dice_bar.call("clear_selection")
 		return
 	var reason: String = session.shop.can_sell_dice(dice)
@@ -492,18 +483,66 @@ func _sell_selected_dice() -> void:
 	if dice == null:
 		return
 	var gold: int = session.shop.sell_dice(dice)
-	_show_message("주사위 판매 +%d원" % gold if gold >= 0 else session.shop.can_sell_dice(dice))
+	if gold < 0:
+		_show_message(session.shop.can_sell_dice(dice))
 	_dice_bar.call("clear_selection")
 
 
 # --- 헬퍼 -------------------------------------------------------------------
 
+## 구매·판매가 막혔을 때만 알린다 (성공한 행동은 기록하지 않음). "" = 알릴 것 없음.
 func _show_message(text: String) -> void:
-	_message.text = text
+	if text == "":
+		return
+	if text == ShopState.GOLD_SHORT_MESSAGE:
+		_flash_center(GOLD_SHORT_TEXT, true)
+	else:
+		_flash_center(text, false)
 
 
-func _result_text(reason: String, success: String) -> String:
-	return success if reason == "" else reason
+## 화면 가운데 알림: 튀어나오듯 커지고(골드 부족은 좌우로 흔들림) 잠시 뒤 사라진다
+func _flash_center(text: String, big: bool) -> void:
+	if _toast_tween != null:
+		_toast_tween.kill()
+	if _toast != null and is_instance_valid(_toast):
+		_toast.queue_free()
+	_toast = UiKit.panel(Color(0.12, 0.03, 0.03, 0.94) if big else Color(0.05, 0.06, 0.08, 0.92), UiConfig.SHOP_FRAME_COLOR if big else UiConfig.COLOR_ACCENT)
+	var sb: StyleBoxFlat = _toast.get_theme_stylebox("panel") as StyleBoxFlat
+	sb.set_border_width_all(4 if big else 2)
+	sb.set_corner_radius_all(16)
+	sb.content_margin_left = 40 if big else 22
+	sb.content_margin_right = sb.content_margin_left
+	sb.content_margin_top = 22 if big else 12
+	sb.content_margin_bottom = sb.content_margin_top
+	sb.shadow_color = Color(0, 0, 0, 0.6)
+	sb.shadow_size = 18
+	_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_toast.z_index = 50
+	var l: Label = UiKit.label(text, 46 if big else 20, Color("ffdf6b") if big else Color.WHITE)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.add_theme_constant_override("outline_size", 8 if big else 0)
+	l.add_theme_color_override("font_outline_color", Color("5a1010"))
+	_toast.add_child(l)
+	add_child(_toast)
+	_toast.reset_size()
+	var center: Vector2 = size * 0.5 + (Vector2.ZERO if big else Vector2(0, 40))
+	_toast.position = center - _toast.size * 0.5
+	_toast.pivot_offset = _toast.size * 0.5
+	_toast.scale = Vector2.ONE * 0.6
+	_toast.modulate.a = 0.0
+	var home: float = _toast.position.x
+	var toast: Control = _toast
+	_toast_tween = create_tween()
+	_toast_tween.tween_property(toast, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_toast_tween.parallel().tween_property(toast, "modulate:a", 1.0, 0.12)
+	if big:
+		for k: int in range(4):
+			var dx: float = (12.0 if k % 2 == 0 else -12.0) * (1.0 - float(k) * 0.2)
+			_toast_tween.tween_property(toast, "position:x", home + dx, 0.05)
+		_toast_tween.tween_property(toast, "position:x", home, 0.05)
+	_toast_tween.tween_interval(TOAST_HOLD)
+	_toast_tween.tween_property(toast, "modulate:a", 0.0, 0.3)
+	_toast_tween.tween_callback(toast.queue_free)
 
 
 func _big_button(text: String, color: Color) -> Button:
@@ -529,4 +568,4 @@ func _on_dice_target_chosen(dice: DiceInstance) -> void:
 		return
 	var offer: ShopOffer = _pending_offer
 	_cancel_buy_mode()
-	_show_message(_result_text(session.shop.buy(offer, dice), "%s 변환 완료!" % offer.title))
+	_show_message(session.shop.buy(offer, dice))

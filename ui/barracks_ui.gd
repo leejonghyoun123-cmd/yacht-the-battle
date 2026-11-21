@@ -455,8 +455,7 @@ func _select_summon(index: int) -> void:
 	if _big_icon == null:
 		return
 	var to_rect: Rect2 = _big_icon.get_global_rect()
-	var value: int = session.summons[index]["value"]
-	var ghost: Control = _ghost(NumberFormatter.format_num(value), from_rect)
+	var ghost: Control = _ghost(index, from_rect)
 	_big_icon.modulate.a = 0.0
 	var big: Control = _big_icon
 	var tw: Tween = create_tween().set_parallel(true)
@@ -476,7 +475,7 @@ func _fly_and_place(summon: int, unit: StringName, cell_index: int, replace: boo
 	_animating = true
 	var from_rect: Rect2 = _big_icon.get_global_rect()
 	var target: Vector2 = view.call("cell_screen_position", cell_index)
-	var ghost: Control = _ghost(NumberFormatter.format_num(session.summons[summon]["value"]), from_rect)
+	var ghost: Control = _ghost(summon, from_rect)
 	_big_icon.modulate.a = 0.0
 	# 포물선 비행: 시작 → 칸, 가운데가 위로 솟는 궤적 + 회전하며 작아짐
 	var start: Vector2 = from_rect.position - global_position
@@ -551,9 +550,10 @@ func _do_place(summon: int, unit: StringName, cell_index: int, replace: bool) ->
 	refresh.call_deferred()
 
 
-func _ghost(text: String, rect: Rect2) -> Control:
+## 날아가는 주사위 복사본: 패·큰 아이콘과 같은 모양 (2면 = 동전, 포커카드 = 카드)
+func _ghost(summon: int, rect: Rect2) -> Control:
 	var g: Control = ItemIcon.new()
-	g.call("setup", "dice", text, Color("fff6d8"))
+	_setup_summon_icon(g, summon, Color("fff6d8"))
 	g.position = rect.position - global_position
 	g.size = rect.size
 	g.z_index = 20
