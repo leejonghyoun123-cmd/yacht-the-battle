@@ -64,12 +64,6 @@ func update_sheet(flow: RoundFlow, board: YachtBoard) -> void:
 		if recorded:
 			total += int(board.recorded[category])
 		_rows.add_child(_row(category, recorded, int(board.recorded.get(category, 0)), preview, can_record))
-		# 에이스|투, 쓰리|포 사이 검은 선
-		if category == YachtBoard.Category.ACES or category == YachtBoard.Category.THREES:
-			var line: ColorRect = ColorRect.new()
-			line.color = HEADER
-			line.custom_minimum_size = Vector2(0, 2)
-			_rows.add_child(line)
 	_total.text = "이번 사이클 합계  %s원" % NumberFormatter.format_num(total)
 
 
