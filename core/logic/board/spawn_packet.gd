@@ -7,7 +7,7 @@ var unit_data: UnitData
 ## 총 누적 인원 (압축 전)
 var total_count: int = 0
 var is_consumable: bool = false
-## 이후 타로·포커 수트 등 스탯 보정 목록 (예전 형식, 사용하지 않음)
+## 이후 타로 등 스탯 보정 목록 (예전 형식, 사용하지 않음)
 var stat_modifiers: Array[Dictionary] = []
 ## 이 칸 유닛 전원에 적용할 스탯 보정 (칸 보정 + 타로 유닛칸 버프)
 var modifiers: Array[StatModifier] = []

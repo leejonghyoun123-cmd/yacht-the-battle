@@ -358,13 +358,9 @@ func _setup_icon(icon: Control, offer: ShopOffer) -> void:
 		ShopOffer.Kind.ENCHANT:
 			icon.call("setup", "enchant", offer.enchant_data.get_icon_text(), UiConfig.rarity_color(int(offer.enchant_data.rarity)))
 		ShopOffer.Kind.TRAIT:
-			if offer.trait_data is PokerTrait:
-				icon.set("suit", PokerTrait.SuitType.SPADE)
-				icon.call("setup", "card", "A")
-			else:
-				icon.set("sub_text", offer.trait_data.badge)
-				icon.set("sub_color", offer.trait_data.color)
-				icon.call("setup", "dice", "성질", Color("f4f1e8").lerp(offer.trait_data.color, 0.35))
+			icon.set("sub_text", offer.trait_data.badge)
+			icon.set("sub_color", offer.trait_data.color)
+			icon.call("setup", "dice", "성질", Color("f4f1e8").lerp(offer.trait_data.color, 0.35))
 		ShopOffer.Kind.TAROT:
 			icon.set("sub_text", offer.tarot_data.display_name)
 			icon.call("setup", "tarot", TarotCardData.roman(offer.tarot_data.numeral))
@@ -438,8 +434,6 @@ func _continue_pick() -> void:
 		_show_message(result)
 		return
 	var caption: String = "%s → %s!" % [dice.data.display_name, offer.title]
-	if offer.kind == ShopOffer.Kind.TRAIT and dice.trait_data is PokerTrait:
-		caption = "포커카드로 변환! (%s)" % (dice.trait_data as PokerTrait).get_state_text(dice)
 	_pick_overlay.call("play_transform", dice, caption)
 	session.shop.last_message = ""
 	refresh()

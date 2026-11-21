@@ -249,7 +249,7 @@ func attach_trait(p_trait: DiceTraitData, rng: RandomNumberGenerator) -> bool:
 	return true
 
 
-## 화면 표시용 눈금 글자 (포커카드면 A/J/Q/K)
+## 화면 표시용 눈금 글자 (성질이 표기를 바꾸면 그 글자)
 func face_label(value: int) -> String:
 	return trait_data.face_label(value) if trait_data != null else str(value)
 

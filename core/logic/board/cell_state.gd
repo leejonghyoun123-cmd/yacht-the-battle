@@ -9,7 +9,7 @@ var unit_id: StringName = &""
 var count: int = 0
 ## 이번 라운드 한정 인원 (과부하 주사위: 중첩칸에 놓아도 영구 누적되지 않고 소비칸처럼 정산)
 var temp_count: int = 0
-## 이 칸 유닛에 붙은 스탯 보정 (포커 수트·로열, 뼈주사위 등). 칸이 비면 함께 사라진다.
+## 이 칸 유닛에 붙은 스탯 보정 (뼈주사위 등). 칸이 비면 함께 사라진다.
 var modifiers: Array[StatModifier] = []
 
 

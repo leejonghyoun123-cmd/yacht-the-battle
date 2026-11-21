@@ -173,7 +173,7 @@ func _on_yacht_recorded(_category: int, _gold: int) -> void:
 	messages.clear()
 	for result: DiceRollResult in flow.results:
 		var mod: Dictionary = BossRules.modify_summon(get_round(), result)
-		# 포커카드 등 성질이 원시 눈금에 따라 해금하는 병과 (A → 거인, K → 킹) + 칸 보정(수트·로열·뼈)
+		# 성질이 원시 눈금에 따라 해금하는 병과 (현재 없음) + 칸 보정(뼈)
 		var die: DiceInstance = deck.active[result.dice_index]
 		var unlocks: Array[StringName] = []
 		var mods: Array[StatModifier] = []
@@ -234,7 +234,7 @@ func can_place(summon_index: int, unit_id: StringName, cell_index: int) -> bool:
 	return board.can_place(cell_index, unit_id)
 
 
-## 이 주사위로 이 병과를 배치할 수 있는가. 거인·킹은 포커카드 전용 (A → 거인, K → 킹).
+## 이 주사위로 이 병과를 배치할 수 있는가. 거인·킹은 성질이 해금한 주사위만 (포커카드 삭제로 현재 해금 수단 없음).
 func can_use_unit(summon_index: int, unit_id: StringName) -> bool:
 	if not UnitCatalog.is_poker_only(unit_id):
 		return true

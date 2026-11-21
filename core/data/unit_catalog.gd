@@ -4,7 +4,7 @@ extends RefCounted
 
 const UNIT_DIR: String = "res://data/units/"
 const ALL_IDS: Array[StringName] = [&"sword", &"bow", &"shield", &"cannon", &"healer", &"giant", &"king"]
-## 일반 주사위로 배치할 수 있는 병과 (거인·킹은 포커카드 에이스 전용 — 포커카드 단계에서 연결)
+## 일반 주사위로 배치할 수 있는 병과 (거인·킹은 해금 전용 — 포커카드 삭제로 현재 해금 수단 없음)
 const NORMAL_IDS: Array[StringName] = [&"sword", &"bow", &"shield", &"cannon", &"healer"]
 const POKER_ONLY_IDS: Array[StringName] = [&"giant", &"king"]
 

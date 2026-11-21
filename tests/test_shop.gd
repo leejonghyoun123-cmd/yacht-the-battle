@@ -42,7 +42,7 @@ func _test_stock() -> void:
 	var s: GameSession = _session()
 	var shop: ShopState = s.shop
 	_eq(shop.dice_offers.size(), 4, "주사위 4칸")
-	_eq(shop.dice_offers[0].kind, ShopOffer.Kind.TRAIT, "1칸 = 성질 변환 (포커카드 등)")
+	_eq(shop.dice_offers[0].kind, ShopOffer.Kind.TRAIT, "1칸 = 성질 변환")
 	_eq(shop.dice_offers[1].kind, ShopOffer.Kind.TRAIT, "2칸 = 성질 변환")
 	_check(shop.dice_offers[0].trait_data != shop.dice_offers[1].trait_data, "성질 2칸은 서로 다른 성질")
 	_eq(shop.special_offers[0].kind, ShopOffer.Kind.TAROT, "타로 1칸")

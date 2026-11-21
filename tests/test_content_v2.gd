@@ -13,7 +13,7 @@ func _initialize() -> void:
 	_test_confirm_effects()
 	_test_destroy_and_round_end()
 	_test_overload()
-	_test_poker_suit_in_battle()
+	_test_cell_modifier_in_battle()
 	_test_items()
 	_test_tarots_board()
 	_test_tarots_battle()
@@ -159,19 +159,21 @@ func _test_overload() -> void:
 	_eq(b.cells[1].temp_count, 0, "과부하 인원 정리")
 
 
-func _test_poker_suit_in_battle() -> void:
+## 칸 스탯 보정(StatModifier)이 전투 능력치에 반영되는지 (예전 포커 수트 검사를 일반 보정으로 바꿈)
+func _test_cell_modifier_in_battle() -> void:
 	var b: BoardState = BoardState.new()
-	var spade: StatModifier = PokerTrait.get_suit_modifier(PokerTrait.SuitType.SPADE)
-	b.place(4, &"sword", 10, [spade, PokerTrait.get_royal_modifier()])
+	var spade: StatModifier = StatModifier.make("공격력 ×1.2", { "attack_mult": 1.2 })
+	var royal: StatModifier = StatModifier.make("공격력·체력 +30%", { "attack_mult": 1.3, "hp_mult": 1.3, "size_mult": 1.2 })
+	b.place(4, &"sword", 10, [spade, royal])
 	b.place(4, &"sword", 5, [spade])
-	_eq(b.cells[4].modifiers.size(), 2, "같은 수트 보정은 한 칸에 한 번만")
+	_eq(b.cells[4].modifiers.size(), 2, "같은 보정은 한 칸에 한 번만")
 	var sim: BattleSimulation = BattleSimulation.new()
 	sim.setup([b.get_spawn_packets(), []], 1)
-	_near(sim.units[0].attack, 10.0 * 1.2 * 1.3, "♠ ×1.2 + 로열 ×1.3 공격력")
+	_near(sim.units[0].attack, 10.0 * 1.2 * 1.3, "×1.2 + ×1.3 공격력")
 	sim.run_to_end()
 	var heart: BattleUnit = BattleUnit.new()
-	heart.setup(0, 0, 0, UnitCatalog.get_unit(&"sword"), 1.0, false, 1, [PokerTrait.get_suit_modifier(PokerTrait.SuitType.DIAMOND)])
-	_near(heart.shield, 20.0, "♦: 최대 체력 20% 실드")
+	heart.setup(0, 0, 0, UnitCatalog.get_unit(&"sword"), 1.0, false, 1, [StatModifier.make("체력 20% 실드", { "shield_ratio": 0.2 })])
+	_near(heart.shield, 20.0, "최대 체력 20% 실드")
 	heart.take_damage(15.0)
 	_near(heart.hp, 100.0, "실드가 먼저 피해를 흡수")
 

@@ -8,12 +8,11 @@
 ## 문서 충돌 확정 사항
 - 보스 라운드: 06 레벨 디자인 기준 3·6·9·12·15R. 피격 상한 1~6R 75 / 7~12R 100 / 13R~ 무제한.
 - 인첸트 수치: 02 기준 (합연산 +3/+7/+15 등).
-- 포커카드: 03 기준 1~13 (A~K).
 - 굴림 순서: 02의 5-Pass (일반 → 자석 → Cross-Dice → 거울 → 족보 연동).
 - 3R·6R 보스 감소: 얏츠판 판정 후, 소환 인원에만 적용.
 
 ## 핵심 규칙 확정 사항
-- (리메이크 진행 중, 2026-11-22~) 주사위는 6면 하나만 — 2·4·20·100면 삭제. 상점 다면 주사위 2칸은 빈 칸(ShopOffer.Kind.EMPTY, GameBalance.DICE_SHOP_WEIGHTS가 비면 빈 칸)으로 두고 새 상품 자리로 쓴다. 가방(예비칸) 용도는 리메이크에서 다시 정한다. 리메이크 전 버전은 git 태그 v1-before-remake.
+- (리메이크 진행 중, 2026-11-22~) 주사위는 6면 하나만 — 2·4·20·100면 삭제. 포커카드 성질도 삭제(거인·킹은 데이터만 남고 해금 수단 없음). 상점 다면 주사위 2칸은 빈 칸(ShopOffer.Kind.EMPTY, GameBalance.DICE_SHOP_WEIGHTS가 비면 빈 칸)으로 두고 새 상품 자리로 쓴다. 가방(예비칸) 용도는 리메이크에서 다시 정한다. 리메이크 전 버전은 git 태그 v1-before-remake.
 - 소환: 주사위마다 따로 소환하며, 소환 전에 병과를 선택한다.
 - 배치판: 3x3. **9칸 모두 중첩칸** (2026-11-22 변경, 소비칸 폐지 — GameBalance.ALL_CELLS_STACK=false면 예전 방식: 가운데 열만 중첩칸, 좌우 소비칸). 한 칸에는 한 병과만 들어간다.
 - 중첩칸 인원은 전투 사망으로 줄지 않는다. 바뀔 수 있으므로 교체 가능한 정책으로 구현한다.
@@ -68,11 +67,11 @@
 - 준비 화면 전환은 GameRoot._slide (탭 순서 유닛배치·주사위·상점 방향으로 EXPO ease-out 슬라이드). 유닛배치는 BattleView.set_screen_shift로 뒤 연병장도 같이 민다.
 - 상점 알림 패널 없음: 성공한 행동은 기록하지 않고, 막혔을 때만 화면 가운데 알림(_flash_center). 골드 부족(ShopState.GOLD_SHORT_MESSAGE)은 "소지골드가 부족합니다."를 크게+흔들림.
 - 아이템 개별 가격은 UserItemData.price_override (핸드드릴 350원). 전투 화면 스킵 버튼 없음(배속만 오른쪽 끝).
-- 날아가는 주사위 복사본(연출용)도 _setup_summon_icon/setup_dice로 그린다 — setup("dice")로 그리면 포커카드가 일반 주사위로 보인다.
+- 날아가는 주사위 복사본(연출용)도 _setup_summon_icon/setup_dice로 그린다 (성질 색·리본이 같이 보이도록).
 - 상점: 왼쪽 간판(widgets/shop_sign)·판매/리롤/돌아가기, 오른쪽 붉은 테두리 진열대 2줄(카드가 폭을 채움) + 가격 꼬리표(widgets/price_tag).
 - 에디터에 열려 있는 씬을 밖에서 지우면 에디터가 다시 저장해 되살린다. 씬 파일을 지울 땐 사용자에게 에디터 탭을 닫아 달라고 한다.
 - 얏츠판 12칸: 에이스~식스(1의 자리) + 초이스(1의 자리 전부의 합) + 하단 5. 12칸 완성 시 프레스티지.
-- 준비시간 2분 + 1회 30초 연장은 친선전 전용 (GameSession.new(seed, use_prep_timer=true)). 솔로는 타이머 없음 — 시스템(RoundTimer)은 유지. 거인(·킹)은 포커카드 에이스 전용 — 일반 주사위 배치 목록에 없음(GameSession.can_use_unit).
+- 준비시간 2분 + 1회 30초 연장은 친선전 전용 (GameSession.new(seed, use_prep_timer=true)). 솔로는 타이머 없음 — 시스템(RoundTimer)은 유지. 거인·킹은 해금 전용(GameSession.can_use_unit + summons["unlocks"]) — 포커카드 삭제로 지금은 해금 수단 없음.
 - 마우스 위치는 get_global_mouse_position() 대신 입력 이벤트 좌표를 쓴다 (리게임 직후 등 갱신이 늦어 컵·칸 클릭이 어긋난 적 있음).
 - test_streak(14): 연패 보상 지급 확인.
 - 연패 보상 2:100 / 3:150 / 4:200 / 5+:300(+무료 리롤). 캐논: 공격 7, 간격 2.4초, 반경 16, 광역 가장자리 40%(BattleRules.SPLASH_EDGE_DAMAGE) — 1:1 측정상 소드·힐러에 강하고 보우·실드에 약함.
@@ -80,16 +79,16 @@
 - 인첸트 24종(기존 9 + tools/generate_enchants_v2.gd 15). 새 인첸트는 ShopCatalog.ENCHANT_PATHS에 등록해야 상점에 나온다.
 - 테스트 추가: test_boss(7), test_enchants_v2(24).
 - 중첩 특수능력: UnitData.branch_thresholds(기본 50/150, 킹 3/5) + branch_1/2(UnitBranch .tres, data/unit_branches). 칸 누적 인원(packet.total_count)으로 판정, 2분기는 1분기에 누적. 전투 능력치는 BattleUnit 필드를 쓴다(u.data.* 직접 사용 금지).
-- 킹: is_unique(판에 한 칸, 1명 소환, 칸 인원 = 누적 K 수). 장판 곱배수 공격 ×1.3 / 받는 피해 ×0.8, 킹 피해는 장판 안 아군과 균등 분담(share_targets, 자기 참조 금지). 포커카드(PokerTrait, 성질 없는 6면 전용) A → 거인, K → 킹 (GameSession summons["unlocks"]).
+- 킹: is_unique(판에 한 칸, 1명 소환, 칸 인원 = 누적 K 수). 장판 곱배수 공격 ×1.3 / 받는 피해 ×0.8, 킹 피해는 장판 안 아군과 균등 분담(share_targets, 자기 참조 금지). (해금 수단이었던 포커카드는 삭제됨)
 - 주사위 성질: DiceTraitData(.tres, data/traits, tools/generate_traits.gd) + DiceInstance.trait_data. 새 성질은 ShopCatalog.TRAIT_PATHS에 등록. 가격 GameBalance.TRAIT_PRICE_BY_RANK(C150/B250/A400/S600).
 - 전투 화면: 유닛은 UnitFigure(스틱맨) — 아트 교체 시 이 파일만 바꾼다. 데미지 숫자는 동시 70개 제한 + 같은 대상 0.12초 안 합산.
 - 테스트 추가: test_king_poker(45).
-- 칸 보정: StatModifier(.tres 하위 리소스 또는 코드 static 캐시) — 포커 수트·로열, 뼈주사위는 CellState.modifiers(칸이 비면 사라짐), 타로 유닛칸 버프는 BoardState.slot_modifiers(칸 자리 영구). 같은 리소스는 한 칸에 한 번만.
+- 칸 보정: StatModifier(.tres 하위 리소스 또는 코드 static 캐시) — 뼈주사위는 CellState.modifiers(칸이 비면 사라짐), 타로 유닛칸 버프는 BoardState.slot_modifiers(칸 자리 영구). 같은 리소스는 한 칸에 한 번만.
 - 성질 훅 순서: prepare_context → modify_base_faces → 추첨 → override_raw → on_rolled → 아이템 → 인첸트 → on_post_pipeline → 아이템 최종 → (기록) on_confirm → (정산 후) on_round_end. 해석기 3-Pass: 일반 → 자석 → 거울. 파괴는 GameSession.destroy_dice(인첸트 자동 회수·5주사위 보충)로만.
 - 과부하 주사위: 중첩칸에 놓으면 CellState.temp_count(이번 라운드 한정, 승리 시 판매).
 - 유저 아이템: UserItemData 훅 + ItemInstance.state, GameSession.inventory(최대 6). 타로: TarotCardData(RESERVE 예약 2장 / WALL 설치 / CELL 칸 지정), 전투 효과는 시뮬레이션 경과 시간으로만(BattleSimulation.add_battle_tarot). 1인용 상점 풀은 PVP_ONLY·상대 간섭 제외.
 - GDScript에서 get_stack은 내장 함수라 메서드 이름으로 쓰면 파싱 오류. perl 치환으로 "\n"을 넣으면 실제 줄바꿈이 들어가 문자열이 깨진다 — 문자열 속 \n은 Edit 도구로 넣는다.
-- 주사위 아이콘은 ItemIcon.setup_dice(주사위, 눈금글자): 포커카드 = 트럼프 카드(수트는 도형으로 그림). 대상 주사위 선택은 DicePickOverlay(검은 40% + 변환 연출).
+- 주사위 아이콘은 ItemIcon.setup_dice(주사위, 눈금글자): 성질 주사위는 성질 색 + 리본. 대상 주사위 선택은 DicePickOverlay(검은 40% + 변환 연출).
 - 테스트 추가: test_content_v2(64).
 - 팀별 정예 압축: BattleSimulation.team_compression[team] (유압 압축기). 공용 BattleRules.compression_threshold는 바꾸지 않는다 (적에게도 적용되므로).
 - 무단 침입 통행증: GameSession.trespass_swap → DeckManager.force_swap + RoundFlow.reroll_single(재굴림 횟수 소모 없음). 더 러버 연결은 BoardState.slot_links(중앙 관리) → BattleSimulation.team_links.

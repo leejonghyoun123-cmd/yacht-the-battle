@@ -7,8 +7,7 @@ var text: String = ""
 var color: Color = Color.WHITE
 ## 가방 크기 표현 (0~3)
 var size_level: int = 1
-## 포커카드 수트 (card) / 주사위 위 성질 리본 글자 (dice)
-var suit: int = 0
+## 주사위 위 성질 리본 글자 (dice)
 var sub_text: String = ""
 var sub_color: Color = Color.WHITE
 
@@ -62,8 +61,6 @@ func _draw() -> void:
 			draw_arc(Vector2(c.x, body.position.y), s * 0.2 * k, PI, TAU, 16, Color("5b3d27"), 4.0)
 			_round_rect(body, Color("7a5235"), s * 0.08)
 			draw_rect(Rect2(body.position + Vector2(0, body.size.y * 0.25), Vector2(body.size.x, body.size.y * 0.18)), Color("5b3d27"))
-		"card":
-			_draw_card(r, c, s, font)
 		"tarot":
 			var tr: Rect2 = Rect2(c - Vector2(s * 0.3, s * 0.42), Vector2(s * 0.6, s * 0.84))
 			_round_rect(tr, Color("3b2a5e"), s * 0.06)
@@ -96,56 +93,13 @@ func _text(font: Font, t: String, center: Vector2, font_size: int, col: Color) -
 	draw_string(font, center + Vector2(-w * 0.5, font_size * 0.35), t, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, col)
 
 
-## 주사위 아이콘: 포커카드는 트럼프 카드, 성질 주사위는 성질 색 + 리본
+## 주사위 아이콘: 성질 주사위는 성질 색 + 리본
 ## face_text: 눈금 글자 ("" 또는 주사위 이름이면 굴리기 전)
 func setup_dice(dice: DiceInstance, face_text: String, base_color: Color = Color("f4f1e8")) -> Control:
 	var unrolled: bool = face_text == "" or face_text == dice.get_short_name() or face_text == String(dice.data.id)
 	sub_text = ""
-	if dice.trait_data is PokerTrait:
-		suit = PokerTrait.get_suit(dice)
-		return setup("card", "" if unrolled else face_text, base_color)
 	if dice.trait_data != null:
 		sub_text = dice.trait_data.badge
 		sub_color = dice.trait_data.color
 		return setup("dice", String(dice.data.id) if unrolled else face_text, base_color.lerp(dice.trait_data.color, 0.35))
 	return setup("dice", face_text, base_color)
-
-
-## 트럼프 카드: 흰 바탕, 모서리 숫자 + 작은 수트, 가운데 큰 수트 (굴리기 전이면 수트만 크게)
-func _draw_card(_r: Rect2, c: Vector2, s: float, font: Font) -> void:
-	var card: Rect2 = Rect2(c - Vector2(s * 0.31, s * 0.43), Vector2(s * 0.62, s * 0.86))
-	_round_rect(Rect2(card.position + Vector2(s * 0.02, s * 0.03), card.size), Color(0, 0, 0, 0.3), s * 0.07)
-	_round_rect(card, Color("fbfaf5") if color.v > 0.8 else color, s * 0.07)
-	draw_rect(card.grow(-s * 0.025), Color(0.75, 0.72, 0.65), false, 1.0)
-	var red: bool = PokerTrait.is_red(suit)
-	var ink: Color = Color("d23232") if red else Color("1e1e24")
-	if text == "":
-		_draw_suit(c, s * 0.24, suit, ink)
-		return
-	_draw_suit(c + Vector2(0, s * 0.06), s * 0.2, suit, ink)
-	var fs: int = int(s * 0.2)
-	var corner: Vector2 = card.position + Vector2(s * 0.12, s * 0.15)
-	_text(font, text, corner, fs, ink)
-	_draw_suit(corner + Vector2(0, s * 0.15), s * 0.06, suit, ink)
-	_text(font, text, card.end - Vector2(s * 0.12, s * 0.15), fs, ink)
-
-
-## 수트 모양을 도형으로 그린다 (폰트에 ♠♥♦♣ 글리프가 없어도 보이도록)
-func _draw_suit(c: Vector2, size: float, p_suit: int, col: Color) -> void:
-	match p_suit:
-		PokerTrait.SuitType.HEART:
-			draw_circle(c + Vector2(-size * 0.42, -size * 0.2), size * 0.48, col)
-			draw_circle(c + Vector2(size * 0.42, -size * 0.2), size * 0.48, col)
-			draw_colored_polygon(PackedVector2Array([c + Vector2(-size * 0.88, -size * 0.05), c + Vector2(size * 0.88, -size * 0.05), c + Vector2(0, size * 0.95)]), col)
-		PokerTrait.SuitType.DIAMOND:
-			draw_colored_polygon(PackedVector2Array([c + Vector2(0, -size), c + Vector2(size * 0.7, 0), c + Vector2(0, size), c + Vector2(-size * 0.7, 0)]), col)
-		PokerTrait.SuitType.SPADE:
-			draw_circle(c + Vector2(-size * 0.42, size * 0.15), size * 0.46, col)
-			draw_circle(c + Vector2(size * 0.42, size * 0.15), size * 0.46, col)
-			draw_colored_polygon(PackedVector2Array([c + Vector2(-size * 0.86, 0.0), c + Vector2(size * 0.86, 0.0), c + Vector2(0, -size * 0.95)]), col)
-			draw_colored_polygon(PackedVector2Array([c + Vector2(0, size * 0.2), c + Vector2(size * 0.3, size * 0.95), c + Vector2(-size * 0.3, size * 0.95)]), col)
-		_:
-			draw_circle(c + Vector2(0, -size * 0.45), size * 0.38, col)
-			draw_circle(c + Vector2(-size * 0.45, size * 0.12), size * 0.38, col)
-			draw_circle(c + Vector2(size * 0.45, size * 0.12), size * 0.38, col)
-			draw_colored_polygon(PackedVector2Array([c + Vector2(0, 0), c + Vector2(size * 0.3, size * 0.95), c + Vector2(-size * 0.3, size * 0.95)]), col)

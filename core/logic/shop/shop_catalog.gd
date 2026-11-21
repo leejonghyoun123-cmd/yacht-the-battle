@@ -32,7 +32,6 @@ const ENCHANT_PATHS: Array[String] = [
 ]
 ## 상점 성질 변환 칸에 나올 수 있는 성질
 const TRAIT_PATHS: Array[String] = [
-	"res://data/traits/poker.tres",
 	"res://data/traits/bone.tres",
 	"res://data/traits/blood.tres",
 	"res://data/traits/glass.tres",

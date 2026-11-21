@@ -300,7 +300,7 @@ func _build_selected_panel() -> void:
 
 
 ## 병과 선택 링: 클릭한 칸을 중심으로 병과 버튼이 둘레(8방향 간격)로 피어난다.
-## 일반 주사위는 거인·킹 불가 — 포커카드 전용. exclude = 교체할 때 지금 칸의 병과는 빼기.
+## 거인·킹은 해금된 주사위만 (지금은 해금 수단 없음). exclude = 교체할 때 지금 칸의 병과는 빼기.
 func _open_unit_ring(cell_index: int, exclude: StringName = &"") -> void:
 	_close_unit_ring()
 	var ids: Array[StringName] = []
@@ -550,7 +550,7 @@ func _do_place(summon: int, unit: StringName, cell_index: int, replace: bool) ->
 	refresh.call_deferred()
 
 
-## 날아가는 주사위 복사본: 패·큰 아이콘과 같은 모양 (포커카드 = 카드)
+## 날아가는 주사위 복사본: 패·큰 아이콘과 같은 모양 (성질 색·리본 포함)
 func _ghost(summon: int, rect: Rect2) -> Control:
 	var g: Control = ItemIcon.new()
 	_setup_summon_icon(g, summon, Color("fff6d8"))
@@ -745,15 +745,13 @@ func _big_button(text: String, font_size: int, min_size: Vector2) -> Button:
 	return b
 
 
-## 소환 주사위 아이콘: 포커카드는 카드(눈금 A~K), 그 외는 소환 인원 숫자
+## 소환 주사위 아이콘: 소환 인원 숫자 (주사위 없는 추가 소환은 하늘색)
 func _setup_summon_icon(icon: Control, index: int, base: Color) -> void:
 	var s: Dictionary = session.summons[index]
 	var dice: DiceInstance = session.get_summon_dice(index)
 	var value_text: String = NumberFormatter.format_num(s["value"])
 	if dice == null:
 		icon.call("setup", "dice", value_text, Color("d9f2ff"))
-	elif dice.trait_data is PokerTrait:
-		icon.call("setup_dice", dice, dice.face_label(int(s["raw"])), base)
 	else:
 		icon.call("setup_dice", dice, value_text, base)
 
