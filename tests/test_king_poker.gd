@@ -98,10 +98,11 @@ func _test_poker_trait() -> void:
 	var poker: DiceTraitData = load("res://data/traits/poker.tres")
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	rng.seed = 5
-	var d6: DiceInstance = DiceInstance.new(load("res://data/dice/d6.tres"))
-	_check(not d6.attach_trait(poker, rng), "6면 주사위는 포커카드 불가")
-	var d2: DiceInstance = DiceInstance.new(load("res://data/dice/d2.tres"))
-	_check(d2.attach_trait(poker, rng), "2면 주사위 → 포커카드 변환")
+	var traited: DiceInstance = DiceInstance.new(load("res://data/dice/d6.tres"))
+	_check(traited.attach_trait(load("res://data/traits/bone.tres"), rng), "다른 성질 먼저 부여")
+	_check(not traited.attach_trait(poker, rng), "성질 있는 6면 주사위는 포커카드 불가")
+	var d2: DiceInstance = DiceInstance.new(load("res://data/dice/d6.tres"))
+	_check(d2.attach_trait(poker, rng), "6면 주사위 → 포커카드 변환")
 	_eq(d2.get_modified_faces().size(), 13, "면 13개 (A~K)")
 	_eq(d2.face_label(13), "K", "13 = K")
 	_eq(d2.face_label(1), "A", "1 = A")
@@ -143,14 +144,19 @@ func _test_shop_trait() -> void:
 	offer.trait_data = load("res://data/traits/poker.tres")
 	offer.price = ShopCatalog.trait_price(offer.trait_data)
 	s.player.gold = 2000
-	_eq(shop.can_buy(offer), "2면주사위를 보유하고있어야 구매가 가능합니다", "2면 주사위가 없으면 구매 불가 + 안내 문구")
-	var d2: DiceInstance = DiceInstance.new(load("res://data/dice/d2.tres"))
+	# 모든 주사위에 다른 성질이 붙어 있으면 구매 불가 + 안내 문구
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	var bone: DiceTraitData = load("res://data/traits/bone.tres")
+	for d: DiceInstance in s.deck.active:
+		d.attach_trait(bone, rng)
+	_eq(shop.can_buy(offer), "성질 없는 6면주사위를 보유하고있어야 구매가 가능합니다", "성질 없는 6면 주사위가 없으면 구매 불가 + 안내 문구")
+	var d2: DiceInstance = DiceInstance.new(load("res://data/dice/d6.tres"))
 	s.deck.add_to_reserve(d2)
-	_eq(shop.can_buy(offer), "", "2면 주사위가 있으면 구매 가능")
+	_eq(shop.can_buy(offer), "", "성질 없는 6면 주사위가 있으면 구매 가능")
 	var gold: int = s.player.gold
-	_eq(shop.buy(offer, s.deck.active[0]), "이 주사위는 변환할 수 없습니다 (2면 주사위 · 성질 없음)", "6면 주사위 지정 → 거절")
-	_eq(shop.buy(offer, d2), "", "2면 주사위 지정 → 변환")
-	_check(d2.trait_data != null, "변환 완료")
+	_eq(shop.buy(offer, s.deck.active[0]), "이 주사위는 변환할 수 없습니다 (6면 주사위 · 성질 없음)", "성질 있는 주사위 지정 → 거절")
+	_eq(shop.buy(offer, d2), "", "성질 없는 6면 주사위 지정 → 변환")
+	_check(d2.trait_data is PokerTrait, "변환 완료")
 	_eq(gold - s.player.gold, ShopCatalog.trait_price(offer.trait_data), "가격 차감 (B등급 250원)")
 
 

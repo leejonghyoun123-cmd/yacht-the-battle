@@ -10,7 +10,7 @@ func _initialize() -> void:
 	var poker: PokerTrait = PokerTrait.new()
 	poker.rank = DiceTraitData.Rank.B
 	poker.badge = "포커"
-	_make(poker, &"poker", "포커카드", "2면 주사위 전용. 면이 A(1) ~ K(13)로 바뀐다.\nA가 나오면 거인, K가 나오면 킹을 배치할 수 있다.\n변환 시 수트(♠♥♦♣) 1개가 정해진다.")
+	_make(poker, &"poker", "포커카드", "6면 주사위 전용 (성질 없는 주사위). 면이 A(1) ~ K(13)로 바뀐다.\nA가 나오면 거인, K가 나오면 킹을 배치할 수 있다.\n변환 시 수트(♠♥♦♣) 1개가 정해진다.")
 	quit(0)
 
 

@@ -1,6 +1,6 @@
 class_name PokerTrait
 extends DiceTraitData
-## 포커카드 (2면 주사위 전용). 면을 1(A) ~ 13(K)로 바꾼다.
+## 포커카드 (성질 없는 6면 주사위 전용 — 2면 주사위 삭제로 변경). 면을 1(A) ~ 13(K)로 바꾼다.
 ## A가 나오면 거인, K가 나오면 킹을 배치할 수 있다 (일반 병과도 그대로 가능).
 ## 수트(♠♥♦♣)는 변환 시 1회 추첨해 주사위에 기록하고, 이 주사위로 소환한 칸에 수트 보정을 붙인다.
 ##   ♠ 공격력 ×1.2 / ♥ 최대 체력 ×1.2 / ♦ 전투 시작 시 최대 체력 20% 실드 / ♣ 공격 속도 ×1.2
@@ -39,11 +39,11 @@ static func get_royal_modifier() -> StatModifier:
 
 
 func can_attach_to(dice: DiceInstance) -> bool:
-	return super.can_attach_to(dice) and dice.data.faces.size() == 2
+	return super.can_attach_to(dice) and dice.data.faces.size() == 6
 
 
 func get_requirement_text() -> String:
-	return "2면 주사위 · 성질 없음"
+	return "6면 주사위 · 성질 없음"
 
 
 func on_attach(dice: DiceInstance, rng: RandomNumberGenerator) -> void:
@@ -101,4 +101,4 @@ func get_state_text(dice: DiceInstance) -> String:
 
 
 func get_missing_text() -> String:
-	return "2면주사위를 보유하고있어야 구매가 가능합니다"
+	return "성질 없는 6면주사위를 보유하고있어야 구매가 가능합니다"

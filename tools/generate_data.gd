@@ -12,17 +12,7 @@ func _initialize() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(DICE_DIR))
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(ENCHANT_DIR))
 
-	_save(DiceData.create_standard(&"d4", "4면 주사위", 4), DICE_DIR + "d4.tres")
 	_save(DiceData.create_standard(&"d6", "6면 주사위", 6), DICE_DIR + "d6.tres")
-	_save(DiceData.create_standard(&"d20", "20면 주사위", 20), DICE_DIR + "d20.tres")
-	_save(DiceData.create_standard(&"d100", "100면 주사위", 100), DICE_DIR + "d100.tres")
-	# 2면 주사위: 1 또는 25 (기획서 00 "2면(1 또는 25 코인)")
-	var d2: DiceData = DiceData.new()
-	d2.id = &"d2"
-	d2.display_name = "2면 주사위"
-	var d2_faces: Array[int] = [1, 25]
-	d2.faces = d2_faces
-	_save(d2, DICE_DIR + "d2.tres")
 
 	_save(_add(&"add_common", "합연산 +3", EnchantData.Rarity.COMMON, 3.0), ENCHANT_DIR + "add_common.tres")
 	_save(_add(&"add_uncommon", "합연산 +7", EnchantData.Rarity.UNCOMMON, 7.0), ENCHANT_DIR + "add_uncommon.tres")

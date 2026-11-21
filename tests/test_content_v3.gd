@@ -61,7 +61,7 @@ func _test_hydraulic() -> void:
 
 func _test_trespass() -> void:
 	var s: GameSession = GameSession.new(52)
-	var spare: DiceInstance = DiceInstance.new(load("res://data/dice/d20.tres"))
+	var spare: DiceInstance = DiceInstance.new(load("res://data/dice/d6.tres"))
 	s.deck.add_to_reserve(spare)
 	s.go_to_rolling()
 	s.flow.roll()
@@ -70,7 +70,7 @@ func _test_trespass() -> void:
 	_check(s.can_trespass_swap(), "통행증: 굴림 뒤 교체 가능")
 	var rerolls: int = s.flow.rerolls_left
 	_check(s.trespass_swap(2, s.deck.reserve.find(spare)), "교체 성공")
-	_check(s.deck.active[2] == spare, "출전 3번 = 가방에서 온 d20")
+	_check(s.deck.active[2] == spare, "출전 3번 = 가방에서 온 주사위")
 	_eq(s.flow.rerolls_left, rerolls, "재굴림 횟수는 그대로")
 	_check(not s.deck.can_edit_dice(spare), "들어온 주사위도 이번 라운드 잠금")
 	_check(not s.can_trespass_swap(), "라운드당 1회")

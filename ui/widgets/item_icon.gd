@@ -62,13 +62,6 @@ func _draw() -> void:
 			draw_arc(Vector2(c.x, body.position.y), s * 0.2 * k, PI, TAU, 16, Color("5b3d27"), 4.0)
 			_round_rect(body, Color("7a5235"), s * 0.08)
 			draw_rect(Rect2(body.position + Vector2(0, body.size.y * 0.25), Vector2(body.size.x, body.size.y * 0.18)), Color("5b3d27"))
-		"coin":
-			# 2면 주사위 = 동전
-			draw_circle(c + Vector2(0, s * 0.03), s * 0.4, Color("8a6414"))
-			draw_circle(c, s * 0.4, Color("e8b93a") if color == Color.WHITE or color == Color("f4f1e8") else color)
-			draw_arc(c, s * 0.32, 0.0, TAU, 32, Color("b8871c"), maxf(1.5, s * 0.03))
-			draw_arc(c + Vector2(-s * 0.06, -s * 0.06), s * 0.24, PI * 1.05, PI * 1.45, 10, Color(1, 1, 1, 0.55), maxf(1.5, s * 0.035))
-			_text(font, text, c, int(s * (0.3 if text.length() <= 2 else 0.2)), Color("6b4a08"))
 		"card":
 			_draw_card(r, c, s, font)
 		"tarot":
@@ -103,7 +96,7 @@ func _text(font: Font, t: String, center: Vector2, font_size: int, col: Color) -
 	draw_string(font, center + Vector2(-w * 0.5, font_size * 0.35), t, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, col)
 
 
-## 주사위 아이콘: 2면 주사위는 동전, 포커카드는 트럼프 카드, 성질 주사위는 성질 색 + 리본
+## 주사위 아이콘: 포커카드는 트럼프 카드, 성질 주사위는 성질 색 + 리본
 ## face_text: 눈금 글자 ("" 또는 주사위 이름이면 굴리기 전)
 func setup_dice(dice: DiceInstance, face_text: String, base_color: Color = Color("f4f1e8")) -> Control:
 	var unrolled: bool = face_text == "" or face_text == dice.get_short_name() or face_text == String(dice.data.id)
@@ -111,8 +104,6 @@ func setup_dice(dice: DiceInstance, face_text: String, base_color: Color = Color
 	if dice.trait_data is PokerTrait:
 		suit = PokerTrait.get_suit(dice)
 		return setup("card", "" if unrolled else face_text, base_color)
-	if dice.trait_data == null and dice.data.faces.size() == 2:
-		return setup("coin", "2면" if unrolled else face_text, Color("e8b93a"))
 	if dice.trait_data != null:
 		sub_text = dice.trait_data.badge
 		sub_color = dice.trait_data.color

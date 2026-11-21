@@ -53,7 +53,7 @@ func _ready() -> void:
 ## 샘플 덱: 주사위마다 다른 인첸트 조합 (슬롯 순서 효과를 비교하기 쉽게)
 func _build_sample_dice() -> Array[DiceInstance]:
 	var d6: DiceData = load("res://data/dice/d6.tres")
-	var d20: DiceData = load("res://data/dice/d20.tres")
+	var d20: DiceData = load("res://data/dice/d6.tres")  # (20면 삭제 → 6면)
 	var e: Array[EnchantData] = []
 	for path: String in ENCHANT_PATHS:
 		e.append(load(path))

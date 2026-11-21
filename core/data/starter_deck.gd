@@ -4,7 +4,6 @@ extends RefCounted
 ## 미리 인첸트를 장착해 둔다. (정식 게임의 시작 덱은 상점 구현 때 다시 정한다)
 
 const D6: String = "res://data/dice/d6.tres"
-const D20: String = "res://data/dice/d20.tres"
 const ADD3: String = "res://data/enchants/add_common.tres"
 const ADD7: String = "res://data/enchants/add_uncommon.tres"
 const MUL15: String = "res://data/enchants/mul_common.tres"
@@ -24,7 +23,7 @@ static func build_into(deck: DeckManager) -> void:
 		_make(D6, [MUL15, ECHO]),
 	]
 	deck.set_active(active)
-	deck.set_reserve(0, _make(D20, [ADD7]))
+	deck.set_reserve(0, _make(D6, [ADD7]))
 	deck.set_reserve(1, _make(D6, [MUL3, SUB100]))
 
 

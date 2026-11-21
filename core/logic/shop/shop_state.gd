@@ -108,6 +108,10 @@ func _roll_random_offers() -> void:
 	var dice_keys: Array = GameBalance.DICE_SHOP_WEIGHTS.keys()
 	var dice_weights: Array = GameBalance.DICE_SHOP_WEIGHTS.values()
 	for i: int in range(DICE_OFFER_COUNT - TRAIT_OFFER_COUNT):
+		# 팔 주사위가 없으면 빈 칸으로 둔다 (리메이크 때 새 상품을 넣을 자리)
+		if dice_keys.is_empty():
+			dice_offers.append(_make(ShopOffer.Kind.EMPTY, 0, "빈 칸", "아직 진열할 상품이 없습니다"))
+			continue
 		var id: StringName = ShopCatalog.pick_weighted(dice_keys, dice_weights, rng)
 		var data: DiceData = ShopCatalog.load_dice(id)
 		var offer: ShopOffer = _make(ShopOffer.Kind.DICE, ShopCatalog.dice_price(data), data.display_name, "면: %s\n구매하면 가방(예비 슬롯)에 들어갑니다" % _faces_text(data))

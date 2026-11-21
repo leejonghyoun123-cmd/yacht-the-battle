@@ -2,7 +2,8 @@ class_name ShopOffer
 extends RefCounted
 ## 상점 진열 상품 1칸
 
-enum Kind { FOOD, WALL, DICE, TRAIT_LOCKED, BAG, SPECIAL_LOCKED, ENCHANT, TRAIT, TAROT, ITEM }
+## EMPTY = 비어 있는 진열 칸 (아직 팔 상품이 정해지지 않은 자리)
+enum Kind { FOOD, WALL, DICE, TRAIT_LOCKED, BAG, SPECIAL_LOCKED, ENCHANT, TRAIT, TAROT, ITEM, EMPTY }
 
 var kind: Kind = Kind.FOOD
 var price: int = 0
@@ -28,7 +29,7 @@ func is_repeatable() -> bool:
 
 ## 아직 시스템이 없는 칸 (성질 변환·타로·유저 아이템) — 해당 단계에서 채운다
 func is_locked() -> bool:
-	return kind == Kind.TRAIT_LOCKED or kind == Kind.SPECIAL_LOCKED
+	return kind == Kind.TRAIT_LOCKED or kind == Kind.SPECIAL_LOCKED or kind == Kind.EMPTY
 
 
 func is_available() -> bool:

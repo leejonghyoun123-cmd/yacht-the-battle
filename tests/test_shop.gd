@@ -47,7 +47,8 @@ func _test_stock() -> void:
 	_check(shop.dice_offers[0].trait_data != shop.dice_offers[1].trait_data, "성질 2칸은 서로 다른 성질")
 	_eq(shop.special_offers[0].kind, ShopOffer.Kind.TAROT, "타로 1칸")
 	_eq(shop.special_offers[1].kind, ShopOffer.Kind.ITEM, "유저 아이템 1칸")
-	_eq(shop.dice_offers[2].kind, ShopOffer.Kind.DICE, "3·4칸 = 다면 주사위")
+	_eq(shop.dice_offers[2].kind, ShopOffer.Kind.EMPTY, "3·4칸 = 빈 칸 (다면 주사위 삭제)")
+	_check(shop.can_buy(shop.dice_offers[2]) != "", "빈 칸은 구매 불가")
 	_eq(shop.special_offers.size(), 2, "타로/아이템 2칸 (잠김)")
 	_eq(shop.enchant_offers.size(), 3, "인첸트 3칸")
 	_check(shop.food != null and shop.wall != null, "식량축적·성벽증축 상시 진열")
@@ -83,16 +84,16 @@ func _test_buy() -> void:
 	print("[구매]")
 	var s: GameSession = _session()
 	var shop: ShopState = s.shop
-	var dice_offer: ShopOffer = shop.dice_offers[2]
+	var dice_offer: ShopOffer = _d6_offer()
 	var gold: int = s.player.gold
 	_eq(shop.buy(dice_offer), "", "다면 주사위 구매")
 	_eq(gold - s.player.gold, dice_offer.price, "가격 차감")
 	_check(s.deck.reserve[0] != null and s.deck.reserve[0].data == dice_offer.dice_data, "가방(예비)에 들어감")
 	_check(dice_offer.sold, "판매 완료 표시")
 	_check(shop.buy(dice_offer) != "", "같은 상품 재구매 불가")
-	shop.buy(shop.dice_offers[3])
+	shop.buy(_d6_offer())
 	shop.reroll()
-	var full: ShopOffer = shop.dice_offers[2]
+	var full: ShopOffer = _d6_offer()
 	_eq(shop.can_buy(full), "가방에 빈칸이 없습니다", "가방(2칸) 가득 차면 주사위 구매 불가")
 	_eq(shop.buy(shop.bag), "", "작은 가방 구매")
 	_eq(s.deck.reserve_unlocked, 3, "예비 3칸")
@@ -130,7 +131,7 @@ func _test_enchant_rules() -> void:
 	s.flow.roll()
 	_check(not s.deck.transfer_enchant(d1, 2, d0, 0), "굴린 뒤: 굴린 주사위 인첸트 이동 불가")
 	_check(not s.deck.move_enchant(d1, 2, 0), "굴린 뒤: 순서 변경 불가")
-	shop.buy(shop.dice_offers[2])
+	shop.buy(_d6_offer())
 	var bag_dice: DiceInstance = s.deck.reserve[0]
 	shop.reroll()
 	var e2: ShopOffer = shop.enchant_offers[0]
@@ -162,7 +163,7 @@ func _test_sell() -> void:
 	var shop: ShopState = s.shop
 	var d0: DiceInstance = s.deck.active[0]
 	_check(shop.can_sell_dice(d0) != "", "가방에 대체 주사위가 없으면 출전 주사위 판매 불가")
-	shop.buy(shop.dice_offers[2])
+	shop.buy(_d6_offer())
 	var spare: DiceInstance = s.deck.reserve[0]
 	var add3: EnchantData = load("res://data/enchants/add_common.tres")
 	var mul2: EnchantData = load("res://data/enchants/mul_uncommon.tres")
@@ -229,3 +230,13 @@ func _test_shield() -> void:
 	var summary: Dictionary = BattleSettlement.settle_solo(lose, s.player, s.board, s.streak, 1)
 	_eq(summary["shield_absorbed"], shield, "실드가 먼저 막음")
 	_eq(s.player.hp, hp - (50 - shield), "남은 피해만 체력 감소")
+
+
+## 주사위 칸 구매 경로 검사용: 빈 칸에 6면 주사위가 진열됐다고 가정한 상품
+func _d6_offer() -> ShopOffer:
+	var o: ShopOffer = ShopOffer.new()
+	o.kind = ShopOffer.Kind.DICE
+	o.dice_data = load("res://data/dice/d6.tres")
+	o.price = ShopCatalog.dice_price(o.dice_data)
+	o.title = o.dice_data.display_name
+	return o

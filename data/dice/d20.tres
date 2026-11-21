@@ -1,9 +1,0 @@
-[gd_resource type="Resource" script_class="DiceData" format=3]
-
-[ext_resource type="Script" path="res://core/data/dice_data.gd" id="1_17jvm"]
-
-[resource]
-script = ExtResource("1_17jvm")
-id = &"d20"
-display_name = "20면 주사위"
-faces = Array[int]([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])

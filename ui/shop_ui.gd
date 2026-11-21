@@ -262,6 +262,16 @@ func _offer_card(offer: ShopOffer) -> Control:
 		done.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(done)
 		return holder
+	if offer.kind == ShopOffer.Kind.EMPTY:
+		# 빈 진열 칸: 가격표 없이 비어 있는 자리만 (나중에 새 상품을 넣을 곳)
+		style.bg_color = Color(0, 0, 0, 0.18)
+		style.border_color = Color(1, 1, 1, 0.12)
+		style.set_border_width_all(2)
+		style.shadow_size = 0
+		var empty: Label = UiKit.label("빈 칸", 15, Color(1, 1, 1, 0.25))
+		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(empty)
+		return holder
 
 	var tag: Control = PriceTag.new()
 	var tag_state: int = PriceTag.TagState.LOCKED if offer.is_locked() else (PriceTag.TagState.SOLD if offer.sold else PriceTag.TagState.ON_SALE)
@@ -341,10 +351,7 @@ func _setup_icon(icon: Control, offer: ShopOffer) -> void:
 		ShopOffer.Kind.WALL:
 			icon.call("setup", "wall")
 		ShopOffer.Kind.DICE:
-			if offer.dice_data.faces.size() == 2:
-				icon.call("setup", "coin", "2면")
-			else:
-				icon.call("setup", "dice", String(offer.dice_data.id), Color("f4f1e8"))
+			icon.call("setup", "dice", String(offer.dice_data.id), Color("f4f1e8"))
 		ShopOffer.Kind.BAG:
 			icon.set("size_level", offer.bag_tier + 1)
 			icon.call("setup", "bag")

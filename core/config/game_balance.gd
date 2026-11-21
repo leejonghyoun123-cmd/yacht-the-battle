@@ -67,10 +67,10 @@ const REPEAT_PURCHASE_STEP: int = 100
 const WALL_SHIELD_BASE: int = 20
 const WALL_SHIELD_PER_ROUND: int = 10
 
-## 다면 주사위 가격 (기본 6면은 판매가 계산용)
-const DICE_PRICES: Dictionary = { &"d2": 150, &"d4": 100, &"d6": 60, &"d20": 300, &"d100": 700 }
-## 상점 다면 주사위 등장 가중치
-const DICE_SHOP_WEIGHTS: Dictionary = { &"d2": 30, &"d4": 30, &"d20": 30, &"d100": 10 }
+## 주사위 가격 (6면 = 판매가 계산용). 2·4·20·100면은 리메이크로 삭제 (2026-11-22)
+const DICE_PRICES: Dictionary = { &"d6": 60 }
+## 상점 다면 주사위 칸 등장 가중치. 비어 있으면 그 칸은 빈 슬롯 (새 상품을 넣을 자리)
+const DICE_SHOP_WEIGHTS: Dictionary = {}
 ## 인첸트 등급별 등장 가중치 (일반·고급·희귀·전설)
 const ENCHANT_RARITY_WEIGHTS: Array[int] = [50, 30, 15, 5]
 
