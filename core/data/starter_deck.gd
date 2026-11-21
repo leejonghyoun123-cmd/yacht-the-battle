@@ -28,6 +28,14 @@ static func build_into(deck: DeckManager) -> void:
 	deck.set_reserve(1, _make(D6, [MUL3, SUB100]))
 
 
+## 정식 시작 덱: 인첸트 없는 6면 주사위 5개 + 빈 예비 2칸 (GameSession이 사용)
+static func build_plain_into(deck: DeckManager) -> void:
+	var active: Array[DiceInstance] = []
+	for i: int in range(GameBalance.ACTIVE_DICE_COUNT):
+		active.append(_make(D6, []))
+	deck.set_active(active)
+
+
 static func _make(dice_path: String, enchant_paths: Array) -> DiceInstance:
 	var d: DiceInstance = DiceInstance.new(load(dice_path) as DiceData)
 	var slot: int = 0

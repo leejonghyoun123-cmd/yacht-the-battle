@@ -37,12 +37,68 @@ func _init(seed_value: int = 0) -> void:
 		rng.randomize()
 	player = PlayerState.new()
 	deck = DeckManager.new()
-	StarterDeck.build_into(deck)
+	StarterDeck.build_plain_into(deck)
 	yacht = YachtBoard.new()
 	flow = RoundFlow.new(player, deck, yacht, rng)
 	board = BoardState.new()
 	streak = StreakState.new()
+	shop = ShopState.new(player, deck, rng)
+	shop.restock(flow.round_number)
+	timer = RoundTimer.new()
+	timer.reset()
 	flow.yacht_recorded.connect(_on_yacht_recorded)
+
+
+## 상점 (연병장에서 이동)
+var shop: ShopState
+## 준비 시간 타이머 (1분 30초 + 1회 30초 연장). 화면이 tick을 넘겨주고, 만료 시 auto_finalize 호출.
+var timer: RoundTimer
+
+
+## 준비 단계인가 (연병장·굴림·배치 — 전투 전)
+func is_preparing() -> bool:
+	return phase == Phase.BARRACKS or phase == Phase.ROLLING or phase == Phase.PLACEMENT
+
+
+## 굴림 화면 → 연병장 (화면은 자유롭게 오갈 수 있다)
+func go_to_barracks() -> bool:
+	if phase == Phase.ROLLING:
+		_set_phase(Phase.BARRACKS)
+		return true
+	return phase == Phase.BARRACKS
+
+
+## 준비 시간 만료: 굴리지 않았으면 자동 굴림 → 가장 비싼 얏츠판 항목 기록 →
+## 남은 주사위는 소드로 빈 소비칸(없으면 소드를 받을 수 있는 칸)에 소환 → 전투 시작.
+func auto_finalize() -> BattleSimulation:
+	if phase == Phase.BARRACKS or phase == Phase.ROLLING:
+		if phase == Phase.BARRACKS:
+			_set_phase(Phase.ROLLING)
+		if flow.phase == RoundFlow.Phase.PREP:
+			flow.roll()
+		var preview: Dictionary = flow.get_yacht_preview()
+		var best: int = -1
+		for c: int in preview.keys():
+			if best < 0 or preview[c] > preview[best]:
+				best = c
+		flow.record_yacht(best)
+	if phase != Phase.PLACEMENT:
+		return null
+	for i: int in range(summons.size()):
+		if summons[i]["placed"]:
+			continue
+		var target: Dictionary = _auto_target()
+		place(i, target["unit"], target["cell"])
+	return start_battle()
+
+
+## 자동 소환 위치: 소드를 받을 수 있는 소비칸 → 중첩칸 → (없으면) 첫 칸의 병과 그대로
+func _auto_target() -> Dictionary:
+	for stack_pass: bool in [false, true]:
+		for cell: CellState in board.cells:
+			if cell.is_stack == stack_pass and cell.can_accept(&"sword"):
+				return { "unit": &"sword", "cell": cell.index }
+	return { "unit": board.cells[0].unit_id, "cell": 0 }
 
 
 func get_round() -> int:
@@ -51,8 +107,9 @@ func get_round() -> int:
 
 # --- 연병장 (준비) ---------------------------------------------------------
 
+## 중첩칸 판매: 연병장·굴림 단계 (배치 중에는 이번 라운드 소환과 섞여 되돌리기가 꼬이므로 불가)
 func can_sell_stack() -> bool:
-	return phase == Phase.BARRACKS
+	return phase == Phase.BARRACKS or phase == Phase.ROLLING
 
 
 ## 중첩칸 판매 (준비 단계에서만). 받은 골드 반환.
@@ -68,6 +125,8 @@ func sell_stack_cell(cell_index: int) -> int:
 
 ## 연병장 → 주사위 테이블
 func go_to_rolling() -> bool:
+	if phase == Phase.ROLLING:
+		return true
 	if phase != Phase.BARRACKS:
 		return false
 	_set_phase(Phase.ROLLING)
@@ -169,6 +228,7 @@ func start_battle() -> BattleSimulation:
 	battle = BattleSimulation.new()
 	var enemy: BoardState = EnemyTable.build_board(get_round())
 	battle.setup([board.get_spawn_packets(), enemy.get_spawn_packets()], rng.randi())
+	timer.stop()
 	_set_phase(Phase.BATTLE)
 	return battle
 
@@ -181,6 +241,8 @@ func settle_battle() -> Dictionary:
 	last_summary = BattleSettlement.settle_solo(battle.result, player, board, streak, finished_round)
 	last_summary["round"] = finished_round
 	battle = null
+	# 성벽증축 임시 실드는 해당 라운드에만 유효
+	player.round_shield = 0
 	if player.is_dead():
 		_set_phase(Phase.GAME_OVER)
 		game_over.emit(false)
@@ -191,6 +253,8 @@ func settle_battle() -> Dictionary:
 		game_over.emit(last_summary["winner"] == 0)
 		return last_summary
 	flow.advance_round()
+	shop.restock(get_round())
+	shop.free_reroll = streak.has_free_reroll()
 	_set_phase(Phase.SETTLED)
 	return last_summary
 
@@ -198,6 +262,7 @@ func settle_battle() -> Dictionary:
 ## 정산 화면 확인 후 연병장으로
 func return_to_barracks() -> void:
 	if phase == Phase.SETTLED:
+		timer.reset()
 		_set_phase(Phase.BARRACKS)
 
 

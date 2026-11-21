@@ -41,12 +41,14 @@ static func panel(bg: Color = COLOR_PANEL, border: Color = Color.TRANSPARENT) ->
 
 ## 화면 전체를 덮는 여백 레이아웃. 반환: { "top_left", "top_right", "bottom_center" } 컨테이너.
 ## (앵커 + position 조합은 화면 밖으로 밀려나기 쉬워 컨테이너로 배치한다)
-static func overlay_layout(parent: Control, margin: int = 10) -> Dictionary:
+static func overlay_layout(parent: Control, margin: int = 10, top_extra: int = 0) -> Dictionary:
 	var m: MarginContainer = MarginContainer.new()
 	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for side: String in ["left", "right", "top", "bottom"]:
 		m.add_theme_constant_override("margin_" + side, margin)
+	# 공통 상단 바 아래부터 배치
+	m.add_theme_constant_override("margin_top", margin + top_extra)
 	parent.add_child(m)
 	var v: VBoxContainer = VBoxContainer.new()
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE

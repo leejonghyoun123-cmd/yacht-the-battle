@@ -11,3 +11,7 @@ func _init() -> void:
 
 func apply_post_roll(ctx: RollContext, _instance: EnchantInstance) -> void:
 	ctx.add_value(FixedNum.from_float(amount), display_name)
+
+
+func get_icon_text() -> String:
+	return "+" + FixedNum.to_text(FixedNum.from_float(amount))

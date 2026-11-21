@@ -18,3 +18,7 @@ func apply_pre_roll(faces: Array[int], _instance: EnchantInstance) -> Array[int]
 		if face * 2 > max_face:
 			result.append(face)
 	return result
+
+
+func get_icon_text() -> String:
+	return "▽½"

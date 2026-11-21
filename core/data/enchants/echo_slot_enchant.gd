@@ -8,3 +8,7 @@ extends EnchantData
 func _init() -> void:
 	phase = Phase.POST_ROLL
 	is_copy_enchant = true
+
+
+func get_icon_text() -> String:
+	return "↻"

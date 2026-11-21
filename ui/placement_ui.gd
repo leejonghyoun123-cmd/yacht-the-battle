@@ -19,7 +19,7 @@ var _info_label: Label
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var layout: Dictionary = UiKit.overlay_layout(self)
+	var layout: Dictionary = UiKit.overlay_layout(self, 10, UiConfig.TOP_BAR_HEIGHT)
 
 	var left: PanelContainer = UiKit.panel()
 	var col: VBoxContainer = VBoxContainer.new()

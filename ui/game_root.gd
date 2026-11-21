@@ -1,6 +1,7 @@
 extends Node
 ## 게임 전체 화면 흐름 (메인 씬 루트). 씬에는 루트 Node + 이 스크립트만 두면 된다.
-##   연병장(준비) → 주사위 테이블(굴림·얏츠판) → 배치 → 전투 연출 → 정산 → 다음 라운드 연병장
+## 준비 시간(타이머) 동안 연병장 · 주사위(굴림/배치) · 상점 화면을 자유롭게 오가고,
+## 배치 후 [전투 시작] 또는 시간 만료 시 전투 → 정산 → 다음 라운드 연병장.
 ## 로직은 GameSession, 화면 전환만 여기서 담당한다.
 
 ## 0이면 무작위 시드
@@ -8,70 +9,125 @@ extends Node
 
 var session: GameSession
 var view: Node2D
-var barracks_ui: Control
-var roll_ui: Control
-var placement_ui: Control
+var tooltip: Node
+var top_bar: Control
+var screens: Dictionary = {}
+var current_screen: String = "barracks"
 
 var _ui_layer: CanvasLayer
+var _top_layer: CanvasLayer
 var _settle_panel: PanelContainer
 var _settle_label: Label
 var _settle_button: Button
 
 
 func _ready() -> void:
+	# 기준 해상도 (창 크기가 달라도 이 크기 기준으로 확대·축소)
+	get_tree().root.content_scale_size = UiConfig.BASE_SIZE
+	var window: Window = get_window()
+	if window.mode == Window.MODE_WINDOWED and window.size.x < UiConfig.BASE_SIZE.x:
+		window.size = UiConfig.BASE_SIZE
+		window.move_to_center()
 	session = GameSession.new(fixed_seed)
 
 	view = (load("res://ui/battle_view.gd") as GDScript).new()
 	add_child(view)
 	view.battle_finished.connect(_on_battle_finished)
 
+	tooltip = (load("res://ui/widgets/tooltip.gd") as GDScript).new()
+	add_child(tooltip)
+
 	_ui_layer = CanvasLayer.new()
 	_ui_layer.layer = 5
 	add_child(_ui_layer)
 
-	barracks_ui = (load("res://ui/barracks_ui.gd") as GDScript).new()
-	barracks_ui.set("session", session)
-	barracks_ui.roll_requested.connect(func() -> void: session.go_to_rolling())
-	_ui_layer.add_child(barracks_ui)
+	var barracks: Control = _make_screen("barracks", "res://ui/barracks_ui.gd")
+	barracks.connect("roll_requested", func() -> void: show_screen("roll"))
+	barracks.connect("shop_requested", func() -> void: show_screen("shop"))
 
-	roll_ui = (load("res://ui/prep_and_roll_ui.gd") as GDScript).new()
-	roll_ui.set("flow", session.flow)
-	roll_ui.set("integrated", true)
-	roll_ui.proceed_requested.connect(_on_proceed_to_placement)
-	_ui_layer.add_child(roll_ui)
+	var roll: Control = (load("res://ui/prep_and_roll_ui.gd") as GDScript).new()
+	roll.set("flow", session.flow)
+	roll.set("integrated", true)
+	roll.connect("proceed_requested", func() -> void: show_screen("placement"))
+	screens["roll"] = roll
+	_ui_layer.add_child(roll)
 
-	placement_ui = (load("res://ui/placement_ui.gd") as GDScript).new()
-	placement_ui.set("session", session)
-	placement_ui.battle_requested.connect(_on_battle_requested)
-	_ui_layer.add_child(placement_ui)
+	var placement: Control = _make_screen("placement", "res://ui/placement_ui.gd")
+	placement.connect("battle_requested", _on_battle_requested)
+
+	var shop: Control = _make_screen("shop", "res://ui/shop_ui.gd")
+	shop.connect("back_requested", func() -> void: show_screen("barracks"))
 
 	_build_settle_panel()
+
+	_top_layer = CanvasLayer.new()
+	_top_layer.layer = 6
+	add_child(_top_layer)
+	top_bar = (load("res://ui/top_bar.gd") as GDScript).new()
+	top_bar.set("session", session)
+	top_bar.connect("screen_requested", show_screen)
+	_top_layer.add_child(top_bar)
+
 	session.board.board_changed.connect(_refresh_preview)
 	session.phase_changed.connect(_on_phase_changed)
-	_on_phase_changed(session.phase)
+	session.timer.expired.connect(_on_timer_expired)
+	show_screen("barracks")
+
+
+func _make_screen(key: String, path: String) -> Control:
+	var s: Control = (load(path) as GDScript).new()
+	s.set("session", session)
+	s.set("tooltip", tooltip)
+	screens[key] = s
+	_ui_layer.add_child(s)
+	return s
+
+
+func _process(delta: float) -> void:
+	if session.is_preparing():
+		session.timer.tick(delta)
+
+
+## 준비 화면 전환 (연병장 / 주사위 / 배치 / 상점)
+func show_screen(key: String) -> void:
+	if not session.is_preparing():
+		return
+	# 배치 단계에서 [주사위] 탭은 배치 화면, 굴림 화면은 기록 직후에만
+	if key == "roll" and session.phase == GameSession.Phase.PLACEMENT and current_screen != "roll":
+		key = "placement"
+	current_screen = key
+	if key == "roll":
+		session.go_to_rolling()
+	elif key == "barracks":
+		session.go_to_barracks()
+	current_screen = key
+	tooltip.call("hide_tip")
+	for k: String in screens.keys():
+		(screens[k] as Control).visible = k == key
+	_settle_panel.visible = false
+	top_bar.visible = true
+	top_bar.set("current_screen", key)
+	if key == "barracks" or key == "placement":
+		_refresh_preview()
+	if screens[key].has_method("refresh"):
+		screens[key].call("refresh")
 
 
 func _on_phase_changed(p: GameSession.Phase) -> void:
-	_settle_panel.visible = false
-	barracks_ui.visible = p == GameSession.Phase.BARRACKS
-	# 얏츠판을 기록하면 PLACEMENT가 되지만, 기록 결과를 확인하고 [배치하러 가기]를 누를 때까지 굴림 화면 유지
-	roll_ui.visible = p == GameSession.Phase.ROLLING or p == GameSession.Phase.PLACEMENT
-	placement_ui.visible = false
-	if p == GameSession.Phase.BARRACKS:
-		_refresh_preview()
-		barracks_ui.call("refresh")
+	match p:
+		GameSession.Phase.BATTLE:
+			for k: String in screens.keys():
+				(screens[k] as Control).visible = false
+			top_bar.visible = false
+			tooltip.call("hide_tip")
+		GameSession.Phase.BARRACKS:
+			if current_screen != "barracks" and current_screen != "shop":
+				show_screen("barracks")
 
 
-func _on_proceed_to_placement() -> void:
-	roll_ui.visible = false
-	placement_ui.visible = true
-	_refresh_preview()
-	placement_ui.call("refresh")
-
-
-## 준비·배치 중: 연병장에 현재 병력을 모아 보여 준다
+## 준비·배치 중: 연병장에 현재 병력을 정렬해 보여 준다
 func _refresh_preview() -> void:
-	if session.phase == GameSession.Phase.BATTLE:
+	if not session.is_preparing():
 		return
 	var preview: BattleSimulation = BattleSimulation.new()
 	preview.setup([session.board.get_spawn_packets(), []], 1)
@@ -80,16 +136,25 @@ func _refresh_preview() -> void:
 
 func _on_battle_requested() -> void:
 	var sim: BattleSimulation = session.start_battle()
-	if sim == null:
-		return
-	placement_ui.visible = false
-	view.call("start_battle", sim, 0)
+	if sim != null:
+		view.call("start_battle", sim, 0)
+
+
+## 준비 시간 만료: 자동 굴림·기록·배치 후 전투
+func _on_timer_expired() -> void:
+	var sim: BattleSimulation = session.auto_finalize()
+	if sim != null:
+		view.call("start_battle", sim, 0)
 
 
 func _on_battle_finished(_result: BattleResult) -> void:
 	var summary: Dictionary = session.settle_battle()
 	_show_settlement(summary)
 
+
+# =========================================================================
+# 정산 패널
+# =========================================================================
 
 func _build_settle_panel() -> void:
 	_settle_panel = UiKit.panel(Color(0.08, 0.09, 0.12, 0.95), UiKit.COLOR_ACCENT)
@@ -118,10 +183,12 @@ func _show_settlement(summary: Dictionary) -> void:
 			lines.append("%d연승 보상  +%s원" % [session.streak.win_streak, NumberFormatter.format_num(summary["streak_bonus"])])
 		lines.append("소비칸 생존 %s명 판매  +%s원" % [NumberFormatter.format_num(summary["sale_count"]), NumberFormatter.format_num(summary["sale_gold"])])
 	elif summary.get("winner", -1) == 1:
-		var dmg_text: String = "체력 피해  -%d" % summary["damage"]
+		var dmg_text: String = "피해  -%d" % summary["damage"]
 		if summary["damage_raw"] > summary["damage"]:
 			dmg_text += "  (적 생존 %d명, 라운드 상한 적용)" % summary["damage_raw"]
 		lines.append(dmg_text)
+		if summary.get("shield_absorbed", 0) > 0:
+			lines.append("성벽 실드가 %d 막음 → 체력 -%d" % [summary["shield_absorbed"], summary["hp_damage"]])
 		if summary["streak_bonus"] > 0:
 			lines.append("%d연패 보상  +%s원" % [session.streak.loss_streak, NumberFormatter.format_num(summary["streak_bonus"])])
 		lines.append("소비칸 병력은 사라졌습니다.")
@@ -141,4 +208,6 @@ func _on_settle_confirmed() -> void:
 	if session.phase == GameSession.Phase.GAME_OVER:
 		get_tree().reload_current_scene()
 		return
+	current_screen = ""
 	session.return_to_barracks()
+	show_screen("barracks")

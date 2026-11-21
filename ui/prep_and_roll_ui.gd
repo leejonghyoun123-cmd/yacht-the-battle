@@ -88,6 +88,9 @@ func _build_layout() -> void:
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	for side: String in ["left", "right", "top", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, 10)
+	# 게임 흐름에 연결된 경우: 공통 상단 바(타이머·화면 이동) 자리를 비워 둔다
+	if integrated:
+		margin.add_theme_constant_override("margin_top", 10 + UiConfig.TOP_BAR_HEIGHT)
 	add_child(margin)
 
 	var main: VBoxContainer = VBoxContainer.new()
@@ -104,6 +107,10 @@ func _build_layout() -> void:
 	top.add_child(_round_label)
 	top.add_child(_gold_label)
 	top.add_child(_hp_label)
+	# 연결된 경우 라운드·골드·체력은 공통 상단 바에 표시되므로 숨긴다
+	_round_label.visible = not integrated
+	_gold_label.visible = not integrated
+	_hp_label.visible = not integrated
 	var boss_panel: PanelContainer = _panel(Color("3a2630"))
 	boss_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_boss_label = _label("", 14)

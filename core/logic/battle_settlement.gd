@@ -27,7 +27,10 @@ static func settle_solo(result: BattleResult, player: PlayerState, board: BoardS
 		var damage: int = mini(raw_damage, cap) if cap > 0 else raw_damage
 		summary["damage_raw"] = raw_damage
 		summary["damage"] = damage
-		player.take_damage(damage)
+		# 상한 적용 → 성벽증축 임시 실드 → 체력 순서
+		var taken: Dictionary = player.take_round_damage(damage)
+		summary["shield_absorbed"] = taken["shield"]
+		summary["hp_damage"] = taken["hp"]
 		# 연패 보상은 고리대금 계약서 차감 대상(얏츠판·연승)이 아니므로 OTHER로 태깅
 		summary["streak_bonus"] = player.add_gold(streak.record_loss(), PlayerState.GoldSource.OTHER)
 	board.clear_consumables()

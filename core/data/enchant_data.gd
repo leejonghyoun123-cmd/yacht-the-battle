@@ -34,3 +34,8 @@ func apply_post_roll(_ctx: RollContext, _instance: EnchantInstance) -> void:
 ## EnchantInstance 생성 시 초기 런타임 상태
 func create_initial_state() -> Dictionary:
 	return {}
+
+
+## UI 슬롯 아이콘에 표시할 짧은 글자 (예: "+3", "×2"). 각 인첸트가 재정의한다.
+func get_icon_text() -> String:
+	return display_name.substr(0, 2)

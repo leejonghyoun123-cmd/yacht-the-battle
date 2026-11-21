@@ -54,3 +54,27 @@ func heal(amount: int) -> void:
 
 func is_dead() -> bool:
 	return hp <= 0
+
+
+## 이번 라운드 임시 실드 (성벽증축). 라운드가 끝나면 0으로 초기화.
+var round_shield: int = 0
+
+
+## 라운드 피격: (상한은 호출 전에 적용) → 임시 실드 먼저 차감 → 남은 만큼 체력 감소.
+## 반환: { "shield": 실드로 막은 양, "hp": 실제 체력 피해 }
+func take_round_damage(amount: int) -> Dictionary:
+	var absorbed: int = mini(maxi(amount, 0), round_shield)
+	round_shield -= absorbed
+	var rest: int = maxi(amount, 0) - absorbed
+	take_damage(rest)
+	return { "shield": absorbed, "hp": rest }
+
+
+## 최대 체력 증가 (식량축적). 상한 MAX_HP_CAP, 늘어난 만큼 현재 체력도 회복.
+func increase_max_hp(amount: int) -> int:
+	var before: int = max_hp
+	max_hp = mini(GameBalance.MAX_HP_CAP, max_hp + amount)
+	var gained: int = max_hp - before
+	hp = mini(max_hp, hp + gained)
+	hp_changed.emit(hp, max_hp)
+	return gained

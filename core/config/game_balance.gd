@@ -40,6 +40,33 @@ const START_RESERVE_SLOTS: int = 2
 # --- 상점 (Step 2 이후 사용) ---
 const ENCHANT_PRICE_BY_RARITY: Array[int] = [100, 200, 400, 800]
 const SHOP_REROLL_COST: int = 50
+## 판매가 = 구매가 × 비율
+const SELL_RATIO: float = 0.5
+
+const FOOD_PRICE: int = 150
+const FOOD_MAX_HP_BONUS: int = 50
+const WALL_PRICE: int = 100
+## 성벽증축 임시 실드 = 기본 + 라운드 × 증가량 (해당 라운드만)
+const WALL_SHIELD_BASE: int = 20
+const WALL_SHIELD_PER_ROUND: int = 10
+
+## 다면 주사위 가격 (기본 6면은 판매가 계산용)
+const DICE_PRICES: Dictionary = { &"d2": 150, &"d4": 100, &"d6": 60, &"d20": 300, &"d100": 700 }
+## 상점 다면 주사위 등장 가중치
+const DICE_SHOP_WEIGHTS: Dictionary = { &"d2": 30, &"d4": 30, &"d20": 30, &"d100": 10 }
+## 인첸트 등급별 등장 가중치 (일반·고급·희귀·전설)
+const ENCHANT_RARITY_WEIGHTS: Array[int] = [50, 30, 15, 5]
+
+## 가방 등급: 예비 슬롯 수 (가방 없음 = START_RESERVE_SLOTS)
+const BAG_TIERS: Array[Dictionary] = [
+	{ "name": "작은 가방", "slots": 3, "price": 200 },
+	{ "name": "중간 가방", "slots": 4, "price": 400 },
+	{ "name": "큰 가방", "slots": 5, "price": 700 },
+]
+
+# --- 준비 시간 타이머 ---
+const PREP_TIME: float = 90.0
+const PREP_EXTENSION: float = 30.0
 
 
 ## 라운드별 피격 데미지 상한 (0 = 상한 없음). 06 레벨 디자인 기준.

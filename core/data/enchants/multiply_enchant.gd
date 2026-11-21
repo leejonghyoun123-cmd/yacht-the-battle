@@ -12,3 +12,7 @@ func _init() -> void:
 
 func apply_post_roll(ctx: RollContext, _instance: EnchantInstance) -> void:
 	ctx.apply_multiplier(factor, display_name)
+
+
+func get_icon_text() -> String:
+	return "×" + FixedNum.to_text(FixedNum.from_float(factor))

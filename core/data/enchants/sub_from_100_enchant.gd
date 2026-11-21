@@ -15,3 +15,7 @@ func _init() -> void:
 func apply_post_roll(ctx: RollContext, _instance: EnchantInstance) -> void:
 	var base_fixed: int = FixedNum.from_float(base_value)
 	ctx.set_value(FixedNum.add(base_fixed, -ctx.value), display_name, FixedNum.to_text(base_fixed) + " - X")
+
+
+func get_icon_text() -> String:
+	return "100-"

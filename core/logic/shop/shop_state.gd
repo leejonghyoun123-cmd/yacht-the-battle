@@ -1,0 +1,244 @@
+class_name ShopState
+extends RefCounted
+## 상점 (UI 없는 순수 로직). 진열 배치는 예시 이미지 기준:
+##   윗줄: 식량축적(상시) | 주사위 4칸(성질 변환 2 + 다면 주사위 2) | 가방(다음 등급)
+##   아랫줄: 성벽증축(상시) | 타로/유저 아이템 2칸 | 인첸트 3칸
+## 성질 변환·타로·유저 아이템 칸은 해당 시스템 단계 전까지 잠김.
+## 구매·판매는 실패 사유 문자열을 반환한다 ("" = 성공).
+
+signal changed
+
+const DICE_OFFER_COUNT: int = 4
+const TRAIT_OFFER_COUNT: int = 2
+const SPECIAL_OFFER_COUNT: int = 2
+const ENCHANT_OFFER_COUNT: int = 3
+
+var player: PlayerState
+var deck: DeckManager
+var rng: RandomNumberGenerator
+
+var food: ShopOffer
+var wall: ShopOffer
+var dice_offers: Array[ShopOffer] = []
+var bag: ShopOffer = null
+var special_offers: Array[ShopOffer] = []
+var enchant_offers: Array[ShopOffer] = []
+## 이번 라운드 무료 리롤 (5연패 이상)
+var free_reroll: bool = false
+var round_number: int = 1
+
+
+func _init(p_player: PlayerState, p_deck: DeckManager, p_rng: RandomNumberGenerator) -> void:
+	player = p_player
+	deck = p_deck
+	rng = p_rng
+
+
+# =========================================================================
+# 진열
+# =========================================================================
+
+## 새 라운드 진열 (식량·성벽은 상시, 나머지는 랜덤)
+func restock(p_round: int) -> void:
+	round_number = p_round
+	food = _make(ShopOffer.Kind.FOOD, GameBalance.FOOD_PRICE, "식량축적", "최대 체력 +%d (최대 %d), 늘어난 만큼 회복" % [GameBalance.FOOD_MAX_HP_BONUS, GameBalance.MAX_HP_CAP])
+	wall = _make(ShopOffer.Kind.WALL, GameBalance.WALL_PRICE, "성벽증축", "이번 라운드 피격 피해를 %d만큼 막는 임시 실드" % get_wall_shield())
+	_roll_random_offers()
+	_refresh_bag_offer()
+	changed.emit()
+
+
+## 리롤: 랜덤 칸(주사위·인첸트·특수)만 새로 진열
+func reroll() -> String:
+	if not free_reroll:
+		if not player.spend_gold(GameBalance.SHOP_REROLL_COST):
+			return "골드가 부족합니다"
+	else:
+		free_reroll = false
+	_roll_random_offers()
+	changed.emit()
+	return ""
+
+
+func get_reroll_cost() -> int:
+	return 0 if free_reroll else GameBalance.SHOP_REROLL_COST
+
+
+func get_wall_shield() -> int:
+	return GameBalance.WALL_SHIELD_BASE + round_number * GameBalance.WALL_SHIELD_PER_ROUND
+
+
+func _roll_random_offers() -> void:
+	dice_offers.clear()
+	for i: int in range(TRAIT_OFFER_COUNT):
+		dice_offers.append(_make(ShopOffer.Kind.TRAIT_LOCKED, 0, "성질 변환", "주사위 성질 단계에서 추가됩니다"))
+	var dice_keys: Array = GameBalance.DICE_SHOP_WEIGHTS.keys()
+	var dice_weights: Array = GameBalance.DICE_SHOP_WEIGHTS.values()
+	for i: int in range(DICE_OFFER_COUNT - TRAIT_OFFER_COUNT):
+		var id: StringName = ShopCatalog.pick_weighted(dice_keys, dice_weights, rng)
+		var data: DiceData = ShopCatalog.load_dice(id)
+		var offer: ShopOffer = _make(ShopOffer.Kind.DICE, ShopCatalog.dice_price(data), data.display_name, "면: %s\n구매하면 가방(예비 슬롯)에 들어갑니다" % _faces_text(data))
+		offer.dice_data = data
+		dice_offers.append(offer)
+
+	special_offers.clear()
+	for i: int in range(SPECIAL_OFFER_COUNT):
+		special_offers.append(_make(ShopOffer.Kind.SPECIAL_LOCKED, 0, "타로 / 아이템", "타로카드·유저 아이템 단계에서 추가됩니다"))
+
+	enchant_offers.clear()
+	var pool: Array[EnchantData] = ShopCatalog.enchant_pool(round_number)
+	var weights: Array = []
+	for e: EnchantData in pool:
+		weights.append(GameBalance.ENCHANT_RARITY_WEIGHTS[int(e.rarity)])
+	for i: int in range(ENCHANT_OFFER_COUNT):
+		if pool.is_empty():
+			break
+		var data: EnchantData = ShopCatalog.pick_weighted(pool, weights, rng)
+		var offer: ShopOffer = _make(ShopOffer.Kind.ENCHANT, ShopCatalog.enchant_price(data), data.display_name, data.description + "\n구매 시 주사위 빈 슬롯에 바로 장착")
+		offer.enchant_data = data
+		enchant_offers.append(offer)
+
+
+func _refresh_bag_offer() -> void:
+	var next_tier: int = get_current_bag_tier() + 1
+	if next_tier >= GameBalance.BAG_TIERS.size():
+		bag = null
+		return
+	var info: Dictionary = GameBalance.BAG_TIERS[next_tier]
+	bag = _make(ShopOffer.Kind.BAG, info["price"], info["name"], "가방(예비 슬롯) %d칸으로 확장. 지금 가방과 교체됩니다 (판매 불가)" % info["slots"])
+	bag.bag_tier = next_tier
+
+
+## 현재 가방 등급 (-1 = 기본 2칸)
+func get_current_bag_tier() -> int:
+	var tier: int = -1
+	for i: int in range(GameBalance.BAG_TIERS.size()):
+		if deck.reserve_unlocked >= int(GameBalance.BAG_TIERS[i]["slots"]):
+			tier = i
+	return tier
+
+
+func get_bag_name() -> String:
+	var tier: int = get_current_bag_tier()
+	return "기본 주머니" if tier < 0 else String(GameBalance.BAG_TIERS[tier]["name"])
+
+
+func _make(kind: ShopOffer.Kind, price: int, title: String, desc: String) -> ShopOffer:
+	var o: ShopOffer = ShopOffer.new()
+	o.kind = kind
+	o.price = price
+	o.title = title
+	o.description = desc
+	return o
+
+
+static func _faces_text(data: DiceData) -> String:
+	if data.faces.size() <= 8:
+		return str(data.faces)
+	return "1 ~ %d" % data.faces.size()
+
+
+# =========================================================================
+# 구매
+# =========================================================================
+
+## 구매 가능 여부 ("" = 가능). 인첸트는 장착할 빈 슬롯도 확인.
+func can_buy(offer: ShopOffer) -> String:
+	if offer == null or offer.is_locked():
+		return "아직 준비 중인 상품입니다"
+	if offer.sold:
+		return "이미 판매된 상품입니다"
+	if not player.can_afford(offer.price):
+		return "골드가 부족합니다"
+	match offer.kind:
+		ShopOffer.Kind.FOOD:
+			if player.max_hp >= GameBalance.MAX_HP_CAP:
+				return "최대 체력이 이미 상한(%d)입니다" % GameBalance.MAX_HP_CAP
+		ShopOffer.Kind.DICE:
+			if not deck.has_reserve_space():
+				return "가방에 빈칸이 없습니다"
+		ShopOffer.Kind.ENCHANT:
+			if not deck.has_free_enchant_slot():
+				return "빈 인첸트 슬롯이 없습니다 — 인첸트를 판매해 자리를 만드세요"
+	return ""
+
+
+## 구매. 인첸트는 target_dice / target_slot(빈 슬롯) 지정 필수.
+func buy(offer: ShopOffer, target_dice: DiceInstance = null, target_slot: int = -1) -> String:
+	var reason: String = can_buy(offer)
+	if reason != "":
+		return reason
+	match offer.kind:
+		ShopOffer.Kind.ENCHANT:
+			if target_dice == null or not deck.can_edit_dice(target_dice):
+				return "이번 라운드에 굴린 주사위에는 장착할 수 없습니다"
+			if target_slot < 0 or target_slot >= target_dice.unlocked_slots or target_dice.slots[target_slot] != null:
+				return "빈 슬롯을 골라 주세요"
+			player.spend_gold(offer.price)
+			deck.equip_enchant(target_dice, target_slot, EnchantInstance.new(offer.enchant_data))
+		ShopOffer.Kind.DICE:
+			player.spend_gold(offer.price)
+			deck.add_to_reserve(DiceInstance.new(offer.dice_data))
+		ShopOffer.Kind.FOOD:
+			player.spend_gold(offer.price)
+			player.increase_max_hp(GameBalance.FOOD_MAX_HP_BONUS)
+		ShopOffer.Kind.WALL:
+			player.spend_gold(offer.price)
+			player.round_shield += get_wall_shield()
+		ShopOffer.Kind.BAG:
+			player.spend_gold(offer.price)
+			deck.set_reserve_slots(int(GameBalance.BAG_TIERS[offer.bag_tier]["slots"]))
+	# 식량·성벽은 매 라운드 상시 진열되지만 라운드당 1회 구매 (다음 라운드에 다시 진열)
+	offer.sold = true
+	if offer.kind == ShopOffer.Kind.BAG:
+		_refresh_bag_offer()
+	changed.emit()
+	return ""
+
+
+# =========================================================================
+# 판매
+# =========================================================================
+
+## 주사위 판매 가능 여부 ("" = 가능)
+func can_sell_dice(dice: DiceInstance) -> String:
+	if not deck.can_edit_dice(dice):
+		return "이번 라운드에 굴린 주사위는 판매할 수 없습니다"
+	if deck.active.has(dice):
+		if deck.is_deck_locked:
+			return "굴림이 시작된 뒤에는 출전 주사위를 바꿀 수 없습니다"
+		if deck.first_reserve_index() < 0:
+			return "가방에 대신 출전할 주사위가 없습니다"
+	return ""
+
+
+## 주사위 판매 (끼워진 인첸트 판매가 합산). 받은 골드 반환, 실패 시 -1.
+func sell_dice(dice: DiceInstance) -> int:
+	if can_sell_dice(dice) != "":
+		return -1
+	var gold: int = ShopCatalog.dice_sell_value(dice)
+	if not deck.remove_dice(dice):
+		return -1
+	player.add_gold(gold, PlayerState.GoldSource.OTHER)
+	changed.emit()
+	return gold
+
+
+func can_sell_enchant(dice: DiceInstance, slot: int) -> String:
+	if not deck.can_edit_dice(dice):
+		return "이번 라운드에 굴린 주사위의 인첸트는 뺄 수 없습니다"
+	if slot < 0 or slot >= dice.unlocked_slots or dice.slots[slot] == null:
+		return "판매할 인첸트가 없습니다"
+	return ""
+
+
+func sell_enchant(dice: DiceInstance, slot: int) -> int:
+	if can_sell_enchant(dice, slot) != "":
+		return -1
+	var removed: EnchantInstance = deck.remove_enchant(dice, slot)
+	if removed == null:
+		return -1
+	var gold: int = ShopCatalog.sell_value(ShopCatalog.enchant_price(removed.data))
+	player.add_gold(gold, PlayerState.GoldSource.OTHER)
+	changed.emit()
+	return gold
