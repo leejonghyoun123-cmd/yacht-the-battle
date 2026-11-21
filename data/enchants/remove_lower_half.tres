@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="RemoveLowerHalfEnchant" format=3]
+
+[ext_resource type="Script" path="res://core/data/enchants/remove_lower_half_enchant.gd" id="1_rqicm"]
+
+[resource]
+script = ExtResource("1_rqicm")
+id = &"remove_lower_half"
+display_name = "하위 절반 면 삭제"
+description = "굴리기 전, 최댓값의 절반 이하인 면을 삭제한다."
+rarity = 1
+phase = 0

@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="MultiplyEnchant" format=3]
+
+[ext_resource type="Script" path="res://core/data/enchants/multiply_enchant.gd" id="1_mgdbj"]
+
+[resource]
+script = ExtResource("1_mgdbj")
+factor = 2.0
+id = &"mul_uncommon"
+display_name = "곱연산 ×2"
+description = "현재 값에 2.0를 곱한다."
+rarity = 1
+is_multiplier = true

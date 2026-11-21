@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="SubFrom100Enchant" format=3]
+
+[ext_resource type="Script" path="res://core/data/enchants/sub_from_100_enchant.gd" id="1_kcyog"]
+
+[resource]
+script = ExtResource("1_kcyog")
+id = &"sub_from_100"
+display_name = "100에서 마이너스"
+description = "현재 값을 100 - X로 바꾼다."
+rarity = 3
+min_unlock_round = 7

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="EchoSlotEnchant" format=3]
+
+[ext_resource type="Script" path="res://core/data/enchants/echo_slot_enchant.gd" id="1_uelxs"]
+
+[resource]
+script = ExtResource("1_uelxs")
+id = &"echo_slot"
+display_name = "메아리"
+description = "바로 이전 슬롯의 인첸트를 1회 더 발동한다."
+rarity = 2
+is_copy_enchant = true

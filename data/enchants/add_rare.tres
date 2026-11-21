@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="AddFlatEnchant" format=3]
+
+[ext_resource type="Script" path="res://core/data/enchants/add_flat_enchant.gd" id="1_wnnv0"]
+
+[resource]
+script = ExtResource("1_wnnv0")
+amount = 15.0
+id = &"add_rare"
+display_name = "합연산 +15"
+description = "현재 값에 15.0을 더한다."
+rarity = 2

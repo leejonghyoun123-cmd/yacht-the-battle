@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="AddFlatEnchant" format=3]
+
+[ext_resource type="Script" path="res://core/data/enchants/add_flat_enchant.gd" id="1_c3hf3"]
+
+[resource]
+script = ExtResource("1_c3hf3")
+id = &"add_common"
+display_name = "합연산 +3"
+description = "현재 값에 3.0을 더한다."

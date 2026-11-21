@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="DiceData" format=3]
+
+[ext_resource type="Script" path="res://core/data/dice_data.gd" id="1_tjs3u"]
+
+[resource]
+script = ExtResource("1_tjs3u")
+id = &"d6"
+display_name = "6면 주사위"
+faces = Array[int]([1, 2, 3, 4, 5, 6])
