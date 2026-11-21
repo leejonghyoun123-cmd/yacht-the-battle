@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="MoonTarot" format=3]
+
+[ext_resource type="Script" path="res://core/data/tarots/moon_tarot.gd" id="1_nsyb8"]
+
+[resource]
+script = ExtResource("1_nsyb8")
+id = &"moon"
+display_name = "더 문"
+numeral = 18
+description = "[예약] 교전 시작 후 10초간 아군 전체 공격 속도 +60%."
+category = 0

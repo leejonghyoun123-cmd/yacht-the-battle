@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="BarracksCopierItem" format=3]
+
+[ext_resource type="Script" path="res://core/data/items/barracks_copier_item.gd" id="1_dhpri"]
+
+[resource]
+script = ExtResource("1_dhpri")
+id = &"barracks_copier"
+display_name = "병영 복사기"
+description = "전투마다 가장 적은 중첩칸에 가장 많은 중첩칸의 30%를 임시 증원."
+rank = 2
+icon_text = "⎘"
+stackable = false

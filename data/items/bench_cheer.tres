@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="FinalBonusItem" format=3]
+
+[ext_resource type="Script" path="res://core/data/items/final_bonus_item.gd" id="1_0cn8e"]
+
+[resource]
+script = ExtResource("1_0cn8e")
+mode = 1
+per_unit_bonus = 0.1
+id = &"bench_cheer"
+display_name = "벤치 응원봉"
+description = "가방 속 주사위 1개당 출전 주사위 최종값 +10%."
+priority = 70
+icon_text = "📣"

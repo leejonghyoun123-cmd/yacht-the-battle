@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="MagnetTrait" format=3]
+
+[ext_resource type="Script" path="res://core/data/traits/magnet_trait.gd" id="1_ujs25"]
+
+[resource]
+script = ExtResource("1_ujs25")
+id = &"magnet"
+display_name = "자석 주사위"
+description = "굴린 뒤 50% 확률로 다른 주사위 눈금의 최빈값(동률이면 큰 수)으로 맞춘다."
+badge = "자석"
+color = Color(1, 0.5411765, 0.47843137, 1)
+roll_pass = 1

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="WorldTarot" format=3]
+
+[ext_resource type="Script" path="res://core/data/tarots/world_tarot.gd" id="1_4gvpj"]
+
+[resource]
+script = ExtResource("1_4gvpj")
+id = &"world"
+display_name = "더 월드"
+numeral = 21
+description = "[예약] 아군 체력 합이 시작 대비 30% 이하가 되면 전투 무효.
+체력 피해 없음, 연승·연패 유지, 소비칸 유지, 위로금 +200."
+rank = 3
+category = 0

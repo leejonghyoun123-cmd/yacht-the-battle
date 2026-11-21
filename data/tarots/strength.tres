@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="TarotCardData" format=3]
+
+[ext_resource type="Script" path="res://core/data/stat_modifier.gd" id="1_3oeeu"]
+[ext_resource type="Script" path="res://core/data/tarot_card_data.gd" id="2_sqyky"]
+
+[sub_resource type="Resource" id="Resource_27x5u"]
+script = ExtResource("1_3oeeu")
+display_name = "스트렝스: 물리 피해 ×1.5"
+physical_mult = 1.5
+
+[resource]
+script = ExtResource("2_sqyky")
+id = &"strength"
+display_name = "스트렝스"
+numeral = 8
+description = "[칸 지정] 그 칸 유닛의 물리 피해 ×1.5."
+cell_modifier = SubResource("Resource_27x5u")

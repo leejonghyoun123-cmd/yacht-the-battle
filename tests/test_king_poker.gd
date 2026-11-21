@@ -139,8 +139,11 @@ func _test_shop_trait() -> void:
 	var shop: ShopState = s.shop
 	var offer: ShopOffer = shop.dice_offers[0]
 	_eq(offer.kind, ShopOffer.Kind.TRAIT, "성질 칸 진열")
+	# 진열은 무작위라 포커카드로 고정해서 검사
+	offer.trait_data = load("res://data/traits/poker.tres")
+	offer.price = ShopCatalog.trait_price(offer.trait_data)
 	s.player.gold = 2000
-	_check(shop.can_buy(offer) != "", "2면 주사위가 없으면 변환 불가")
+	_eq(shop.can_buy(offer), "2면주사위를 보유하고있어야 구매가 가능합니다", "2면 주사위가 없으면 구매 불가 + 안내 문구")
 	var d2: DiceInstance = DiceInstance.new(load("res://data/dice/d2.tres"))
 	s.deck.add_to_reserve(d2)
 	_eq(shop.can_buy(offer), "", "2면 주사위가 있으면 구매 가능")

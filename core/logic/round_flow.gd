@@ -59,6 +59,7 @@ func can_roll() -> bool:
 func roll() -> bool:
 	if not can_roll():
 		return false
+	roll_modifiers["bench_count"] = deck.get_bench_count()
 	if phase == Phase.PREP:
 		deck.lock()
 		phase = Phase.ROLLING

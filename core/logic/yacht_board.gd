@@ -44,6 +44,8 @@ const MAX_PRESTIGE_SHIFT: int = 62
 var prestige_level: int = 0
 ## 이번 사이클 기록 { Category: 지급 골드 }
 var recorded: Dictionary = {}
+## 족보 위조권: 스트레이트 숫자 1개 누락 허용, 4개 동일도 얏츠 인정
+var forgery: bool = false
 
 
 func is_recorded(category: Category) -> bool:
@@ -59,7 +61,7 @@ func preview(values: Array[int], round_number: int) -> Dictionary:
 	var result: Dictionary = {}
 	for category: int in Category.values():
 		if not is_recorded(category):
-			result[category] = _apply_multiplier(score_base(category, values, round_number))
+			result[category] = _apply_multiplier(score_base(category, values, round_number, forgery))
 	return result
 
 
@@ -68,7 +70,7 @@ func preview(values: Array[int], round_number: int) -> Dictionary:
 func record(category: Category, values: Array[int], round_number: int) -> int:
 	if is_recorded(category):
 		return -1
-	var gold: int = _apply_multiplier(score_base(category, values, round_number))
+	var gold: int = _apply_multiplier(score_base(category, values, round_number, forgery))
 	recorded[category] = gold
 	category_recorded.emit(category, gold)
 	if recorded.size() >= Category.size():
@@ -79,7 +81,7 @@ func record(category: Category, values: Array[int], round_number: int) -> int:
 
 
 ## 프레스티지 배율 적용 전 기본 보상. 족보 불성립 시 0.
-static func score_base(category: Category, values: Array[int], round_number: int) -> int:
+static func score_base(category: Category, values: Array[int], round_number: int, p_forgery: bool = false) -> int:
 	var digits: Array[int] = to_digits(values)
 	var counts: Array[int] = _count_digits(digits)
 	var digit_sum: int = 0
@@ -97,11 +99,11 @@ static func score_base(category: Category, values: Array[int], round_number: int
 		Category.FULL_HOUSE:
 			return digit_sum * GOLD_PER_PIP + BONUS_FULL_HOUSE if _is_full_house(counts) else 0
 		Category.SMALL_STRAIGHT:
-			return digit_sum * GOLD_PER_PIP + BONUS_SMALL_STRAIGHT if _longest_run(counts) >= 4 else 0
+			return digit_sum * GOLD_PER_PIP + BONUS_SMALL_STRAIGHT if _run_for(counts, p_forgery) >= 4 else 0
 		Category.LARGE_STRAIGHT:
-			return digit_sum * GOLD_PER_PIP + BONUS_LARGE_STRAIGHT if _longest_run(counts) >= 5 else 0
+			return digit_sum * GOLD_PER_PIP + BONUS_LARGE_STRAIGHT if _run_for(counts, p_forgery) >= 5 else 0
 		Category.YACHT:
-			return YACHT_BASE + round_number * YACHT_PER_ROUND if counts.max() >= 5 else 0
+			return YACHT_BASE + round_number * YACHT_PER_ROUND if counts.max() >= (4 if p_forgery else 5) else 0
 	return 0
 
 
@@ -151,4 +153,25 @@ static func _longest_run(counts: Array[int]) -> int:
 			best = maxi(best, run)
 		else:
 			run = 0
+	return best
+
+
+static func _run_for(counts: Array[int], p_forgery: bool) -> int:
+	return _longest_run_with_gap(counts) if p_forgery else _longest_run(counts)
+
+
+## 족보 위조권: 연속 구간 안에서 빠진 숫자 1개까지 채운 것으로 본다 (양 끝 빈칸은 채우지 않음)
+static func _longest_run_with_gap(counts: Array[int]) -> int:
+	var best: int = _longest_run(counts)
+	for start: int in range(10):
+		if counts[start] == 0:
+			continue
+		var missing: int = 0
+		for end: int in range(start, 10):
+			if counts[end] == 0:
+				missing += 1
+				if missing > 1:
+					break
+			elif missing <= 1:
+				best = maxi(best, end - start + 1)
 	return best

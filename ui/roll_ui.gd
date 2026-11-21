@@ -515,7 +515,7 @@ func _start_swipe(active_index: int, reserve_index: int) -> void:
 
 func _ghost(dice: DiceInstance, rect: Rect2) -> Control:
 	var g: Control = ItemIcon.new()
-	g.call("setup", "dice", dice.get_short_name(), Color("fff6d8"))
+	g.call("setup_dice", dice, dice.get_short_name(), Color("fff6d8"))
 	g.position = rect.position - global_position
 	g.size = rect.size
 	g.pivot_offset = rect.size * 0.5

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="InsuranceItem" format=3]
+
+[ext_resource type="Script" path="res://core/data/items/insurance_item.gd" id="1_6cw7f"]
+
+[resource]
+script = ExtResource("1_6cw7f")
+id = &"insurance"
+display_name = "소비칸 보험 증서"
+description = "전투에서 지면 소비칸에 소환했던 인원의 40%만큼 골드 환급."
+rank = 0
+icon_text = "☂"

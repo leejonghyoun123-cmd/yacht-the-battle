@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="FinalBonusItem" format=3]
+
+[ext_resource type="Script" path="res://core/data/items/final_bonus_item.gd" id="1_hh2dm"]
+
+[resource]
+script = ExtResource("1_hh2dm")
+mode = 3
+id = &"last_digit_washer"
+display_name = "끝자리 세탁기"
+description = "모든 주사위의 최종값 1의 자리를 9로 올린다 (12 → 19)."
+rank = 2
+priority = 90
+icon_text = "□9"
+stackable = false

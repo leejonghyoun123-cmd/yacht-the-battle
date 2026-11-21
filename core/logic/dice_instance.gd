@@ -15,6 +15,9 @@ var runtime_state: Dictionary = {}
 ## 주사위 성질 (03 문서, 1개). null = 성질 없음
 var trait_data: DiceTraitData = null
 
+const STATE_FACE_WEIGHTS: String = "face_weights"
+const STATE_REVERSE_SLOTS: String = "reverse_slots"
+
 
 func _init(p_data: DiceData) -> void:
 	data = p_data
@@ -109,17 +112,41 @@ func _build_faces(ctx: RollContext, disabled_slot_indices: Array[int]) -> Array[
 
 ## 실제 굴림: 면 변형 → 결정론적 RNG로 눈금 추첨 → 파이프라인
 func roll(ctx: RollContext) -> void:
+	if trait_data != null:
+		trait_data.prepare_context(ctx, self)
 	var faces: Array[int] = _build_faces(ctx, ctx.disabled_slot_indices)
-	var raw: int = faces[ctx.rng.randi_range(0, faces.size() - 1)]
+	var raw: int = _pick_face(faces, ctx.rng)
+	if trait_data != null:
+		raw = trait_data.override_raw(raw, self)
+		trait_data.on_rolled(ctx, self)
 	run_pipeline(ctx, raw)
+
+
+## 가중치 추첨 (속임 무게추: runtime_state["face_weights"] = { 면: 가중치 })
+func _pick_face(faces: Array[int], rng: RandomNumberGenerator) -> int:
+	var weights: Dictionary = runtime_state.get(STATE_FACE_WEIGHTS, {})
+	if weights.is_empty():
+		return faces[rng.randi_range(0, faces.size() - 1)]
+	var total: float = 0.0
+	for f: int in faces:
+		total += float(weights.get(f, 1.0))
+	var pick: float = rng.randf() * total
+	for f: int in faces:
+		pick -= float(weights.get(f, 1.0))
+		if pick <= 0.0:
+			return f
+	return faces[faces.size() - 1]
 
 
 ## 정해진 원시 눈금으로 파이프라인 실행 (재굴림 시 고정한 주사위, 미리보기 등)
 func run_pipeline(ctx: RollContext, raw_roll: int) -> void:
+	if trait_data != null:
+		trait_data.prepare_context(ctx, self)
 	ctx.begin(raw_roll)
 	_apply_user_items(ctx)
 	_apply_enchant_slots(ctx)
 	_apply_dice_trait(ctx)
+	_apply_user_items_final(ctx)
 
 
 ## 개발 규칙 1번의 시그니처: 원시 눈금 → 최종 소환값(정수)
@@ -137,15 +164,28 @@ func preview_outcomes(round_number: int = 1) -> Dictionary:
 	return result
 
 
-## [유저 아이템 반영] 단계 — 아이템 시스템 구현 시 연결
-func _apply_user_items(_ctx: RollContext) -> void:
-	pass
+## [유저 아이템 반영] 단계: 원시 눈금 트리거 (우선순위 순: 50이좋아 → +? 곱? → ?의 향연)
+func _apply_user_items(ctx: RollContext) -> void:
+	for item: ItemInstance in ctx.items:
+		item.data.on_raw_trigger(ctx, item, self)
+
+
+## 성질까지 끝난 뒤 아이템 최종 보정 (빈 슬롯의 미학, 벤치 응원봉, 오버플로우 배터리, 끝자리 세탁기)
+func _apply_user_items_final(ctx: RollContext) -> void:
+	for item: ItemInstance in ctx.items:
+		item.data.on_final(ctx, item, self)
 
 
 ## [인첸트 슬롯 1→5 순차 적용] 단계
 func _apply_enchant_slots(ctx: RollContext) -> void:
 	var previous_index: int = -1
-	for i: int in range(unlocked_slots):
+	# 역방향 기어: 슬롯을 5→1 순서로 연산 (보스 9R 정지는 물리 슬롯 번호 기준 그대로)
+	var order: Array[int] = []
+	for k: int in range(unlocked_slots):
+		order.append(k)
+	if bool(runtime_state.get(STATE_REVERSE_SLOTS, false)):
+		order.reverse()
+	for i: int in order:
 		# 증폭 코어 예약 배율은 바로 다음 1개 슬롯에만 적용된다
 		ctx.next_slot_power_multiplier = ctx.pending_power_multiplier
 		ctx.pending_power_multiplier = 1.0
@@ -188,9 +228,10 @@ func _apply_copy(ctx: RollContext, copier: EnchantInstance, previous_index: int)
 		ctx.logs[k]["source"] = "%s → %s" % [name, target.get_display_name()]
 
 
-## [주사위 성질 반영] 단계 — 성질 시스템 구현 시 연결
-func _apply_dice_trait(_ctx: RollContext) -> void:
-	pass
+## [주사위 성질 반영] 단계
+func _apply_dice_trait(ctx: RollContext) -> void:
+	if trait_data != null:
+		trait_data.on_post_pipeline(ctx, self)
 
 
 ## 성질 붙이기 (상점 변환). 붙일 수 없으면 false.
@@ -212,3 +253,15 @@ func get_short_name() -> String:
 	if trait_data != null:
 		return trait_data.get_badge_text(self)
 	return String(data.id)
+
+
+## 부작용 없는 기대값 (주사위 복제 거울 등): 나올 수 있는 면의 최종 소환값 평균 (조커·파괴·체력 변화 없음)
+func simulate_expected_value(round_number: int = 1) -> int:
+	var faces: Array[int] = get_modified_faces()
+	if faces.is_empty():
+		return 1
+	var total: int = 0
+	for f: int in faces:
+		var raw: int = trait_data.override_raw(f, self) if trait_data != null else f
+		total += calculate_final_value(raw, round_number)
+	return maxi(1, roundi(float(total) / float(faces.size())))

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="TowerTarot" format=3]
+
+[ext_resource type="Script" path="res://core/data/tarots/tower_tarot.gd" id="1_8kglr"]
+
+[resource]
+script = ExtResource("1_8kglr")
+id = &"tower"
+display_name = "더 타워"
+numeral = 16
+description = "[설치] 내 성벽에 영구 번개 포탑. 2초마다 적 3체 연쇄 번개
+(라운드 × 3 + 최대 체력 5%). 여러 장이면 장당 +50%."
+rank = 2
+category = 1

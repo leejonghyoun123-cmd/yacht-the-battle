@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="GoldTrait" format=3]
+
+[ext_resource type="Script" path="res://core/data/traits/gold_trait.gd" id="1_vabod"]
+
+[resource]
+script = ExtResource("1_vabod")
+final_multiplier = 0.7
+id = &"gold"
+display_name = "황금 주사위"
+description = "최종 소환값 ×0.7.
+확정 시 최종 연산값의 50%만큼 골드 획득."
+badge = "황금"
+color = Color(1, 0.827451, 0.3019608, 1)

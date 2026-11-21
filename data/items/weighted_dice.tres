@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="WeightedDiceItem" format=3]
+
+[ext_resource type="Script" path="res://core/data/items/weighted_dice_item.gd" id="1_0nyyn"]
+
+[resource]
+script = ExtResource("1_0nyyn")
+id = &"weighted_dice"
+display_name = "속임 무게추"
+description = "고른 주사위의 가장 큰 면이 나올 확률이 3배가 된다 (영구)."
+target = 1
+icon_text = "⚖"

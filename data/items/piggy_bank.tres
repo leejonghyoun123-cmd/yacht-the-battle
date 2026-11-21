@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="PiggyBankItem" format=3]
+
+[ext_resource type="Script" path="res://core/data/items/piggy_bank_item.gd" id="1_w6ljy"]
+
+[resource]
+script = ExtResource("1_w6ljy")
+id = &"piggy_bank"
+display_name = "돼지저금통"
+description = "매 라운드 +150원 적립. 준비 단계에 [깨기]로 전액 획득."
+icon_text = "🐷"

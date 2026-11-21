@@ -110,7 +110,7 @@ func _dice_widget(dice: DiceInstance, caption: String) -> Control:
 	icon_holder.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	var icon: Control = ItemIcon.new()
 	icon.custom_minimum_size = UiConfig.DICE_ICON_SIZE
-	icon.call("setup", "dice", _dice_short(dice), Color("f4f1e8") if editable else Color("b9b6ae"))
+	icon.call("setup_dice", dice, _dice_short(dice), Color("f4f1e8") if editable else Color("b9b6ae"))
 	icon_holder.add_child(icon)
 	icon_holder.gui_input.connect(func(e: InputEvent) -> void:
 		if e is InputEventMouseButton and (e as InputEventMouseButton).pressed and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:

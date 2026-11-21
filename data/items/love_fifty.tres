@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="LoveFiftyItem" format=3]
+
+[ext_resource type="Script" path="res://core/data/items/love_fifty_item.gd" id="1_1f816"]
+
+[resource]
+script = ExtResource("1_1f816")
+id = &"love_fifty"
+display_name = "50이좋아"
+description = "지정 눈금(획득 시 1~6 중 결정)이 나오면 연산 시작값을 50으로."
+priority = 10
+icon_text = "50"

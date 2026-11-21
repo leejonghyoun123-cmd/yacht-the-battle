@@ -41,6 +41,10 @@ var result: BattleResult = null
 var events: Array[Dictionary] = []
 
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
+## 라운드 번호 (더 타워 피해 등)
+var round_number: int = 1
+## 전투 타로: [{ "card": TarotCardData, "team": int, "state": Dictionary }]
+var tarot_entries: Array[Dictionary] = []
 var _grids: Array[Dictionary] = [{}, {}]
 var _aura_timer: float = 0.0
 
@@ -63,9 +67,13 @@ func setup(team_packets: Array, seed_value: int) -> void:
 			var ratio: float = plan["ratio"]
 			var offsets: Array[Vector2] = _formation_offsets(spawn, packet.unit_data.is_giant)
 			var center: Vector2 = cell_center(team, packet.cell_index)
+			# 휠 오브 포츈 같은 무작위 보정은 칸마다 이번 전투용으로 1번 추첨
+			var mods: Array[StatModifier] = []
+			for m: StatModifier in packet.modifiers:
+				mods.append((m as RandomStatModifier).resolve(_rng) if m is RandomStatModifier else m)
 			for i: int in range(spawn):
 				var u: BattleUnit = BattleUnit.new()
-				u.setup(next_id, team, packet.cell_index, packet.unit_data, ratio, packet.is_consumable, packet.total_count)
+				u.setup(next_id, team, packet.cell_index, packet.unit_data, ratio, packet.is_consumable, packet.total_count, mods)
 				u.home = center + offsets[i]
 				# 연병장 안에서는 배치한 칸대로 정렬해 서 있다가 → 좁은 문으로 우르르 몰려나가 → 필드에서 다시 정렬
 				u.pos = barracks_cell_center(team, packet.cell_index) + offsets[i]
@@ -151,6 +159,9 @@ func step(dt: float = BattleRules.SIM_DT) -> void:
 			if phase_time >= BattleRules.WHISTLE_DELAY:
 				events.append({ "type": "whistle" })
 				_set_phase(Phase.FIGHT)
+				for entry: Dictionary in tarot_entries:
+					events.append({ "type": "tarot", "team": entry["team"], "name": (entry["card"] as TarotCardData).display_name })
+					(entry["card"] as TarotCardData).on_battle_start(self, entry["team"], entry["state"])
 		Phase.FIGHT:
 			_step_fight(dt)
 
@@ -202,6 +213,10 @@ func _step_deploy(dt: float) -> void:
 
 func _step_fight(dt: float) -> void:
 	_rebuild_grids()
+	for entry: Dictionary in tarot_entries:
+		(entry["card"] as TarotCardData).on_battle_step(self, entry["team"], entry["state"], phase_time, dt)
+		if phase == Phase.ENDED:
+			return
 	_aura_timer -= dt
 	if _aura_timer <= 0.0:
 		_aura_timer = AURA_INTERVAL
@@ -211,6 +226,9 @@ func _step_fight(dt: float) -> void:
 		if not u.alive:
 			continue
 		u.cooldown = maxf(0.0, u.cooldown - dt)
+		_tick_status(u, dt)
+		if not u.alive:
+			continue
 		u.retarget_timer -= dt
 		if u.target == null or not u.target.alive or u.retarget_timer <= 0.0:
 			u.target = _find_nearest_enemy(u)
@@ -251,6 +269,7 @@ func _attack(attacker: BattleUnit, target: BattleUnit) -> void:
 	var splash: float = attacker.splash_radius
 	events.append({ "type": "attack", "from": attacker.id, "to": target.id, "pos": target.pos, "splash": splash })
 	if splash > 0.0:
+		damage *= attacker.splash_damage_mult
 		# 광역 피해는 중심에서 멀수록 약해진다 (중심 100% → 가장자리 SPLASH_EDGE_DAMAGE)
 		for victim: BattleUnit in _enemies_near(attacker.team, target.pos, splash):
 			var t: float = clampf(victim.pos.distance_to(target.pos) / splash, 0.0, 1.0)
@@ -429,6 +448,8 @@ func _find_nearest_enemy(u: BattleUnit) -> BattleUnit:
 				if not grid.has(key):
 					continue
 				for other: BattleUnit in grid[key]:
+					if other.immune_time > 0.0:
+						continue
 					var d: float = other.pos.distance_squared_to(u.pos)
 					if d < best_dist_sq or (d == best_dist_sq and best != null and other.id < best.id):
 						best_dist_sq = d
@@ -436,7 +457,7 @@ func _find_nearest_enemy(u: BattleUnit) -> BattleUnit:
 	if best == null:
 		# 격자 탐색 범위 밖: 전체 탐색 (드문 경우)
 		for other: BattleUnit in units:
-			if other.alive and other.team != u.team:
+			if other.alive and other.team != u.team and other.immune_time <= 0.0:
 				var d2: float = other.pos.distance_squared_to(u.pos)
 				if d2 < best_dist_sq:
 					best_dist_sq = d2
@@ -498,3 +519,100 @@ func _finish(winner: int, reason: String) -> void:
 	result = r
 	_set_phase(Phase.ENDED)
 	battle_ended.emit(r)
+
+
+# =========================================================================
+# 상태 효과 (실드·회복·화염·면역)
+# =========================================================================
+
+func _tick_status(u: BattleUnit, dt: float) -> void:
+	if u.immune_time > 0.0:
+		u.immune_time = maxf(0.0, u.immune_time - dt)
+	if u.regen_ratio > 0.0 and u.hp < u.max_hp:
+		u.heal(u.max_hp * u.regen_ratio * dt)
+	if u.burn_time > 0.0:
+		u.burn_time -= dt
+		_apply_damage(u, u.burn_per_second * dt)
+		if u.burn_time <= 0.0:
+			u.burn_per_second = 0.0
+
+
+# =========================================================================
+# 타로 연동 (카드 스크립트가 호출하는 공개 함수)
+# =========================================================================
+
+## 전투 타로 등록 (setup 이후, 전투 시작 전). stacks: 더 타워처럼 여러 장 설치한 수
+func add_battle_tarot(team: int, card: TarotCardData, stacks: int = 1) -> void:
+	tarot_entries.append({ "card": card, "team": team, "state": { "stacks": stacks } })
+
+
+func rng_range(a: float, b: float) -> float:
+	return _rng.randf_range(a, b)
+
+
+func random_enemy_of(team: int) -> BattleUnit:
+	var pool: Array[BattleUnit] = []
+	for u: BattleUnit in units:
+		if u.alive and u.team != team:
+			pool.append(u)
+	if pool.is_empty():
+		return null
+	return pool[_rng.randi_range(0, pool.size() - 1)]
+
+
+## team 소속 생존 유닛 중 center 반경 안
+func units_near(team: int, center: Vector2, radius: float) -> Array[BattleUnit]:
+	return _enemies_near(1 - team, center, radius)
+
+
+## 효과 피해 (타로 폭격·번개·화염): 받는 피해 배율·실드만 적용
+func apply_effect_damage(victim: BattleUnit, amount: float) -> void:
+	if victim.alive:
+		_apply_damage(victim, amount)
+
+
+## team 유닛이 가장 많이 모인 지점 (유닛 위치 후보 중 반경 안 인원이 가장 많은 곳)
+func densest_point(team: int, radius: float) -> Vector2:
+	var best: Vector2 = Vector2.ZERO
+	var best_count: int = -1
+	var checked: int = 0
+	for u: BattleUnit in units:
+		if not u.alive or u.team != team:
+			continue
+		# 후보는 최대 60개만 검사 (성능)
+		checked += 1
+		if checked > 60:
+			break
+		var n: int = units_near(team, u.pos, radius).size()
+		if n > best_count:
+			best_count = n
+			best = u.pos
+	return best
+
+
+func get_team_hp(team: int) -> float:
+	var total: float = 0.0
+	for u: BattleUnit in units:
+		if u.alive and u.team == team:
+			total += u.hp
+	return total
+
+
+## from에서 가장 가까운 적 (exclude 제외)
+func nearest_enemy_to(team: int, from: Vector2, exclude: Array[BattleUnit]) -> BattleUnit:
+	var best: BattleUnit = null
+	var best_d: float = INF
+	for u: BattleUnit in units:
+		if not u.alive or u.team == team or exclude.has(u):
+			continue
+		var d: float = u.pos.distance_squared_to(from)
+		if d < best_d:
+			best_d = d
+			best = u
+	return best
+
+
+## 더 월드: 전투 무효 (승패 없음, 정산에서 피해·소멸 없음)
+func void_battle() -> void:
+	if phase != Phase.ENDED:
+		_finish(BattleResult.DRAW, "void")

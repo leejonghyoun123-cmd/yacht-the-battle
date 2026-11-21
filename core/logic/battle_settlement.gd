@@ -9,16 +9,22 @@ extends RefCounted
 
 ## 반환: 화면 표시용 요약 Dictionary
 static func settle_solo(result: BattleResult, player: PlayerState, board: BoardState,
-		streak: StreakState, round_number: int) -> Dictionary:
+		streak: StreakState, round_number: int, reward_mult: int = 1) -> Dictionary:
 	var summary: Dictionary = {
 		"winner": result.winner, "reason": result.reason,
 		"win_bonus": 0, "streak_bonus": 0, "sale_count": 0, "sale_gold": 0,
-		"damage": 0, "damage_raw": 0,
+		"damage": 0, "damage_raw": 0, "void_gold": 0,
 	}
+	# 더 월드 무효: 체력 피해·연승연패 변화 없음, 소비칸 유지, 위로금 (+200 × 프레스티지 배율)
+	if result.reason == "void":
+		summary["void_gold"] = player.add_gold(GameBalance.VOID_CONSOLATION * maxi(1, reward_mult), PlayerState.GoldSource.OTHER)
+		board.apply_stack_retention(result.survivors_by_cell[0])
+		return summary
 	if result.winner == 0:
 		summary["win_bonus"] = player.add_gold(GameBalance.WIN_BONUS, PlayerState.GoldSource.WIN_BONUS)
 		summary["streak_bonus"] = player.add_gold(streak.record_win(), PlayerState.GoldSource.WIN_STREAK)
-		var sale_count: int = result.get_consumable_survivors(0, board)
+		# 소비칸 생존자 + 과부하(이번 라운드 한정) 생존자 판매
+		var sale_count: int = result.get_consumable_survivors(0, board) + board.get_temp_survivors(result.survivors_by_cell[0])
 		summary["sale_count"] = sale_count
 		summary["sale_gold"] = player.add_gold(_mul(sale_count, GameBalance.CONSUMABLE_SALE_PER_UNIT), PlayerState.GoldSource.CONSUMABLE_SALE)
 	elif result.winner == 1:

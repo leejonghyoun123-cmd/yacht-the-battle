@@ -42,6 +42,10 @@ var _hand_icons: Dictionary = {}
 var _animating: bool = false
 var _confirm: ConfirmationDialog
 var _pending_action: Callable = Callable()
+## 타로·아이템 패널 (오른쪽)
+var _gear_box: VBoxContainer
+## 칸을 지정해야 하는 타로를 고른 상태
+var _tarot_pending: TarotCardData = null
 
 
 func _ready() -> void:
@@ -107,6 +111,14 @@ func _ready() -> void:
 	_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_message.custom_minimum_size = Vector2(250, 0)
 	left_col.add_child(_message)
+	middle.add_child(_expander())
+	var gear_panel: PanelContainer = UiKit.panel(Color(0.1, 0.11, 0.15, 0.9))
+	gear_panel.custom_minimum_size = Vector2(230, 0)
+	gear_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_gear_box = VBoxContainer.new()
+	_gear_box.add_theme_constant_override("separation", 6)
+	gear_panel.add_child(_gear_box)
+	middle.add_child(gear_panel)
 
 	# 아래: 병과 선택 → 내 패 (배치 중) / 내 주사위 바 (준비 중)
 	var bottom: VBoxContainer = VBoxContainer.new()
@@ -195,6 +207,11 @@ func refresh() -> void:
 	else:
 		_build_prep_panel()
 		_dice_bar.call("refresh")
+	_build_gear()
+	# 확정·정산 때 생긴 알림 (성질·아이템 효과)
+	if not session.messages.is_empty():
+		_message.text = "\n".join(session.messages)
+		session.messages.clear()
 	_push_overlay()
 
 
@@ -235,17 +252,17 @@ func _build_selected_panel() -> void:
 		_left_box.add_child(hint)
 		return
 	var s: Dictionary = session.summons[selected_summon]
-	var dice: DiceInstance = session.deck.active[s["dice_index"]]
+	var dice: DiceInstance = session.get_summon_dice(selected_summon)
 	_big_icon = ItemIcon.new()
 	_big_icon.custom_minimum_size = BIG_DIE_SIZE
 	_big_icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_big_icon.call("setup", "dice", NumberFormatter.format_num(s["value"]), Color("fff6d8"))
+	_setup_summon_icon(_big_icon, selected_summon, Color("fff6d8"))
 	_left_box.add_child(_big_icon)
 	var amount_text: String = "%s명 소환" % NumberFormatter.format_num(s["value"])
 	var sel_data: UnitData = UnitCatalog.get_unit(selected_unit) if selected_unit != &"" else null
 	if sel_data != null and sel_data.is_unique:
 		amount_text = "%s 1명 (누적 +1)" % sel_data.display_name
-	var die_text: String = dice.data.display_name if dice.trait_data == null else "%s %s · 눈금 %s" % [dice.trait_data.display_name, dice.get_short_name(), dice.face_label(int(s["raw"]))]
+	var die_text: String = String(s.get("bonus_name", "추가 소환")) if dice == null else dice.data.display_name if dice.trait_data == null else "%s %s · 눈금 %s" % [dice.trait_data.display_name, dice.get_short_name(), dice.face_label(int(s["raw"]))]
 	for line: Array in [["선택한 주사위", 12, UiConfig.COLOR_DIM], [amount_text, 22, Color("ffe08a")], [die_text, 12, UiConfig.COLOR_DIM]]:
 		var l: Label = UiKit.label(line[0], line[1], line[2])
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -300,7 +317,7 @@ func _build_hand() -> void:
 		holder.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		var icon: Control = ItemIcon.new()
 		icon.custom_minimum_size = Vector2(60, 60)
-		icon.call("setup", "dice", NumberFormatter.format_num(s["value"]), Color("f4f1e8"))
+		_setup_summon_icon(icon, i, Color("f4f1e8"))
 		holder.add_child(icon)
 		var index: int = i
 		holder.gui_input.connect(func(e: InputEvent) -> void:
@@ -419,14 +436,16 @@ func _push_overlay() -> void:
 
 
 func _cell_label(cell: CellState) -> String:
+	var tarots: Array = session.inventory.cell_tarots.get(cell.index, [])
+	var tarot_line: String = ("\n타로 %d" % tarots.size()) if not tarots.is_empty() else ""
 	if cell.is_empty():
-		return ""
+		return tarot_line.strip_edges()
 	var data: UnitData = UnitCatalog.get_unit(cell.unit_id)
-	var plan: Dictionary = BattleRules.get_spawn_plan(cell.count, data.is_giant)
+	var plan: Dictionary = BattleRules.get_spawn_plan(cell.get_total(), data.is_giant, data.is_unique)
 	var extra: String = ""
 	if not data.is_giant and plan["ratio"] > 1.0:
 		extra = " ×%.1f" % plan["ratio"]
-	return "%s\n%s명%s" % [data.display_name, NumberFormatter.format_num(cell.count), extra]
+	return "%s\n%s명%s%s" % [data.display_name, NumberFormatter.format_num(cell.get_total()), extra, tarot_line]
 
 
 func _on_cell_hovered(cell_index: int) -> void:
@@ -439,6 +458,14 @@ func _on_cell_hovered(cell_index: int) -> void:
 	var row_name: String = ["후열", "중열", "전열"][BoardState.row_of(cell_index)]
 	var kind: String = "중첩칸 (전투 후에도 유지)" if cell.is_stack else "소비칸 (승리 시 생존자 판매)"
 	var body: String = "비어 있음" if cell.is_empty() else UiKit.cell_text(cell).replace("\n", " ")
+	for m: StatModifier in cell.modifiers:
+		body += "\n· " + m.display_name
+	for card: TarotCardData in session.inventory.cell_tarots.get(cell_index, []):
+		body += "\n✧ 타로 %s (칸 자리 영구)" % card.display_name
+	if cell.temp_count > 0:
+		body += "\n· 과부하 %s명 (이번 라운드 한정)" % NumberFormatter.format_num(cell.temp_count)
+	if _tarot_pending != null:
+		body += "\n▶ 클릭: %s 부여" % _tarot_pending.display_name
 	var extra: String = ""
 	if session.phase == GameSession.Phase.PLACEMENT and selected_unit != &"":
 		var info: Dictionary = session.get_replace_info(cell_index, selected_unit)
@@ -452,6 +479,15 @@ func _on_cell_hovered(cell_index: int) -> void:
 
 func _on_cell_clicked(cell_index: int) -> void:
 	if not visible or _animating:
+		return
+	if _tarot_pending != null:
+		var card: TarotCardData = _tarot_pending
+		_tarot_pending = null
+		var reason: String = session.use_tarot(card, cell_index)
+		_message.text = reason if reason != "" else "%s → %s 칸에 영구 부여!" % [card.display_name, ["후열", "중열", "전열"][BoardState.row_of(cell_index)]]
+		if reason == "" and view != null:
+			view.call("play_cell_spawn", cell_index)
+		refresh.call_deferred()
 		return
 	if session.phase == GameSession.Phase.PLACEMENT:
 		_try_place(cell_index)
@@ -506,8 +542,18 @@ func _ask(text: String, action: Callable) -> void:
 
 func _summon_tooltip(index: int) -> String:
 	var s: Dictionary = session.summons[index]
-	var dice: DiceInstance = session.deck.active[s["dice_index"]]
-	var text: String = "주사위%d · %s\n소환 %s명" % [index + 1, dice.data.display_name, NumberFormatter.format_num(s["value"])]
+	var dice: DiceInstance = session.get_summon_dice(index)
+	var die_name: String = String(s.get("bonus_name", "추가 소환")) if dice == null else dice.data.display_name
+	if dice != null and dice.trait_data != null:
+		die_name = "%s (%s)" % [dice.trait_data.display_name, dice.face_label(int(s["raw"]))]
+	var text: String = "주사위%d · %s\n소환 %s명" % [index + 1, die_name, NumberFormatter.format_num(s["value"])]
+	for m: StatModifier in s.get("mods", []):
+		text += "\n· " + m.display_name
+	if bool(s.get("temporary", false)):
+		text += "\n· 과부하: 이번 라운드 한정"
+	var unlocks: Array = s.get("unlocks", [])
+	for u: StringName in unlocks:
+		text += "\n★ %s 배치 가능" % UnitCatalog.get_unit(u).display_name
 	if s["reason"] != "":
 		text += "\n(%s명 → %s)" % [NumberFormatter.format_num(s["base"]), s["reason"]]
 	return text + "\n클릭: 선택"
@@ -538,3 +584,109 @@ func _big_button(text: String, font_size: int, min_size: Vector2) -> Button:
 	b.custom_minimum_size = min_size
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	return b
+
+
+## 소환 주사위 아이콘: 포커카드는 카드(눈금 A~K), 2면은 동전, 그 외는 소환 인원 숫자
+func _setup_summon_icon(icon: Control, index: int, base: Color) -> void:
+	var s: Dictionary = session.summons[index]
+	var dice: DiceInstance = session.get_summon_dice(index)
+	var value_text: String = NumberFormatter.format_num(s["value"])
+	if dice == null:
+		icon.call("setup", "dice", value_text, Color("d9f2ff"))
+	elif dice.trait_data is PokerTrait:
+		icon.call("setup_dice", dice, dice.face_label(int(s["raw"])), base)
+	else:
+		icon.call("setup_dice", dice, value_text, base)
+
+
+# =========================================================================
+# 타로카드 · 유저 아이템 (오른쪽 패널)
+# =========================================================================
+
+func _build_gear() -> void:
+	UiKit.clear(_gear_box)
+	var inv: Inventory = session.inventory
+	_gear_box.add_child(UiKit.label("타로카드 (%d/%d)" % [inv.tarot_hand.size(), Inventory.MAX_TAROT_HAND], 15, UiConfig.COLOR_ACCENT))
+	var hand: HBoxContainer = HBoxContainer.new()
+	hand.add_theme_constant_override("separation", 4)
+	_gear_box.add_child(hand)
+	if inv.tarot_hand.is_empty():
+		hand.add_child(UiKit.label("없음 — 상점에서 구매", 12, UiConfig.COLOR_DIM))
+	for card: TarotCardData in inv.tarot_hand:
+		hand.add_child(_tarot_icon(card, card == _tarot_pending, func() -> void: _on_tarot_pressed(card)))
+	if not inv.tarot_reserved.is_empty():
+		_gear_box.add_child(UiKit.label("전투 예약 (%d/%d) — 눌러서 취소" % [inv.tarot_reserved.size(), Inventory.MAX_RESERVED], 12, Color("c9b6ff")))
+		var res: HBoxContainer = HBoxContainer.new()
+		_gear_box.add_child(res)
+		for card: TarotCardData in inv.tarot_reserved:
+			res.add_child(_tarot_icon(card, false, func() -> void:
+				if session.unreserve_tarot(card):
+					_message.text = "%s 예약을 취소했습니다" % card.display_name
+				refresh.call_deferred()))
+	var installed: PackedStringArray = []
+	if inv.towers > 0:
+		installed.append("더 타워 ×%d" % inv.towers)
+	if session.player.justice_shield_max > 0:
+		installed.append("저스티스 실드 %d/%d" % [session.player.justice_shield, session.player.justice_shield_max])
+	if not installed.is_empty():
+		_gear_box.add_child(UiKit.label("설치: " + ", ".join(installed), 12, Color("c9b6ff")))
+
+	_gear_box.add_child(UiKit.label("아이템 (%d/%d)" % [inv.items.size(), Inventory.MAX_ITEMS], 15, UiConfig.COLOR_ACCENT))
+	if inv.items.is_empty():
+		_gear_box.add_child(UiKit.label("없음 — 상점에서 구매", 12, UiConfig.COLOR_DIM))
+	var grid: GridContainer = GridContainer.new()
+	grid.columns = 4
+	_gear_box.add_child(grid)
+	for it: ItemInstance in inv.items:
+		var box: VBoxContainer = VBoxContainer.new()
+		var icon: Control = ItemIcon.new()
+		icon.custom_minimum_size = Vector2(46, 46)
+		icon.call("setup", "item", it.data.icon_text, UiConfig.rarity_color(int(it.data.rank)))
+		icon.mouse_filter = Control.MOUSE_FILTER_STOP
+		if tooltip != null:
+			tooltip.call("attach", icon, func() -> String:
+				var st: String = it.data.get_state_text(it)
+				return "%s\n%s%s" % [it.get_label(), it.data.description, ("\n" + st) if st != "" else ""])
+		box.add_child(icon)
+		if it.data.can_activate(it):
+			var use: Button = UiKit.button(it.data.get_activate_label(), 11)
+			use.disabled = not session.can_activate_item(it)
+			use.pressed.connect(func() -> void:
+				_message.text = session.activate_item(it)
+				refresh.call_deferred())
+			box.add_child(use)
+		grid.add_child(box)
+
+
+func _tarot_icon(card: TarotCardData, selected: bool, on_press: Callable) -> Control:
+	var holder: PanelContainer = UiKit.panel(Color(0, 0, 0, 0), UiConfig.COLOR_SELECTED if selected else Color.TRANSPARENT)
+	holder.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var icon: Control = ItemIcon.new()
+	icon.custom_minimum_size = Vector2(54, 64)
+	icon.set("sub_text", card.display_name)
+	icon.call("setup", "tarot", TarotCardData.roman(card.numeral))
+	holder.add_child(icon)
+	holder.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and (e as InputEventMouseButton).pressed and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+			on_press.call())
+	if tooltip != null:
+		var kinds: Array[String] = ["전투 예약 (1회 소모)", "즉시 설치 (영구)", "칸 지정 (영구)", "상대 간섭"]
+		tooltip.call("attach", holder, func() -> String: return "%s %s · %s\n%s" % [TarotCardData.roman(card.numeral), card.display_name, kinds[int(card.category)], card.description])
+	return holder
+
+
+func _on_tarot_pressed(card: TarotCardData) -> void:
+	if card.category == TarotCardData.Category.CELL:
+		if _tarot_pending == card:
+			_tarot_pending = null
+			_message.text = "타로 지정을 취소했습니다"
+		else:
+			_tarot_pending = card
+			_message.text = "[%s] 버프를 줄 내 배치 칸을 클릭하세요 (칸 자리에 영구 귀속)" % card.display_name
+		refresh.call_deferred()
+		return
+	var verb: String = "전투에 예약" if card.category == TarotCardData.Category.RESERVE else "설치"
+	_ask("%s을(를) %s하시겠습니까?\n%s" % [card.display_name, verb, card.description], func() -> void:
+		var reason: String = session.use_tarot(card)
+		_message.text = reason if reason != "" else "%s %s 완료" % [card.display_name, verb]
+		refresh.call_deferred())

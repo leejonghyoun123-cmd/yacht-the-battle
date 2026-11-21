@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="PiggyBankItem" format=3]
+
+[ext_resource type="Script" path="res://core/data/items/piggy_bank_item.gd" id="1_mmrlb"]
+
+[resource]
+script = ExtResource("1_mmrlb")
+per_round = 50
+dice_multiplier = true
+id = &"dice_piggy_bank"
+display_name = "주사위저금통"
+description = "매 라운드 +50원 적립. [깨기] 시 1~6배를 굴려 획득."
+icon_text = "🎲"

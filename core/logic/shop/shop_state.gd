@@ -10,6 +10,7 @@ signal changed
 
 const DICE_OFFER_COUNT: int = 4
 const TRAIT_OFFER_COUNT: int = 2
+const RANK_NAMES: Array[String] = ["C", "B", "A", "S"]
 const SPECIAL_OFFER_COUNT: int = 2
 const ENCHANT_OFFER_COUNT: int = 3
 
@@ -26,6 +27,15 @@ var enchant_offers: Array[ShopOffer] = []
 ## 이번 라운드 무료 리롤 (5연패 이상)
 var free_reroll: bool = false
 var round_number: int = 1
+
+
+## 보유 아이템·타로 (GameSession이 넣어 준다)
+var inventory: Inventory = null
+## 마지막 구매 알림 (아이템 획득 문구 등)
+var last_message: String = ""
+## 아이템·타로 획득 처리 (GameSession.acquire_item / acquire_tarot)
+var acquire_item_cb: Callable
+var acquire_tarot_cb: Callable
 
 
 func _init(p_player: PlayerState, p_deck: DeckManager, p_rng: RandomNumberGenerator) -> void:
@@ -79,14 +89,14 @@ func get_wall_shield() -> int:
 
 func _roll_random_offers() -> void:
 	dice_offers.clear()
-	# 성질 변환 칸: 첫 칸은 성질 풀에서 추첨, 나머지는 성질 10종 추가 단계 전까지 잠김
+	# 성질 변환 칸 2개: 성질 풀에서 등급 가중치로 추첨 (같은 성질 중복 없음)
 	var traits: Array[DiceTraitData] = ShopCatalog.trait_pool(round_number)
 	for i: int in range(TRAIT_OFFER_COUNT):
-		if i == 0 and not traits.is_empty():
-			var t: DiceTraitData = traits[rng.randi_range(0, traits.size() - 1)]
-			var rank_names: Array[String] = ["C", "B", "A", "S"]
+		if not traits.is_empty():
+			var t: DiceTraitData = _pick_by_rank(traits, func(x: DiceTraitData) -> int: return int(x.rank))
+			traits.erase(t)
 			var t_offer: ShopOffer = _make(ShopOffer.Kind.TRAIT, ShopCatalog.trait_price(t), t.display_name,
-				"[%s등급 성질]\n%s\n구매 후 변환할 주사위를 클릭하세요" % [rank_names[int(t.rank)], t.description])
+				"[%s등급 성질]\n%s\n구매 후 변환할 주사위를 고르세요" % [RANK_NAMES[int(t.rank)], t.description])
 			t_offer.trait_data = t
 			dice_offers.append(t_offer)
 		else:
@@ -101,8 +111,29 @@ func _roll_random_offers() -> void:
 		dice_offers.append(offer)
 
 	special_offers.clear()
-	for i: int in range(SPECIAL_OFFER_COUNT):
-		special_offers.append(_make(ShopOffer.Kind.SPECIAL_LOCKED, 0, "타로 / 아이템", "타로카드·유저 아이템 단계에서 추가됩니다"))
+	# 타로 1칸 + 유저 아이템 1칸
+	var rank_names: Array[String] = RANK_NAMES
+	var tarots: Array[TarotCardData] = ShopCatalog.tarot_pool(round_number)
+	if tarots.is_empty():
+		special_offers.append(_make(ShopOffer.Kind.SPECIAL_LOCKED, 0, "타로", "진열할 카드가 없습니다"))
+	else:
+		var tc: TarotCardData = _pick_by_rank(tarots, func(x: TarotCardData) -> int: return int(x.rank))
+		var t_off: ShopOffer = _make(ShopOffer.Kind.TAROT, ShopCatalog.tarot_price(tc), tc.display_name,
+			"[%s · %s등급 타로]\n%s" % [TarotCardData.roman(tc.numeral), rank_names[int(tc.rank)], tc.description])
+		t_off.tarot_data = tc
+		special_offers.append(t_off)
+	var item_pool: Array[UserItemData] = []
+	for d: UserItemData in ShopCatalog.item_pool(round_number):
+		if d.stackable or inventory == null or not inventory.owns_item(d.id):
+			item_pool.append(d)
+	if item_pool.is_empty():
+		special_offers.append(_make(ShopOffer.Kind.SPECIAL_LOCKED, 0, "아이템", "진열할 아이템이 없습니다"))
+	else:
+		var it: UserItemData = _pick_by_rank(item_pool, func(x: UserItemData) -> int: return int(x.rank))
+		var i_off: ShopOffer = _make(ShopOffer.Kind.ITEM, ShopCatalog.item_price(it), it.display_name,
+			"[%s등급 아이템]\n%s%s" % [rank_names[int(it.rank)], it.description, "\n구매 후 적용할 주사위를 고르세요" if it.target == UserItemData.Target.DICE else ""])
+		i_off.item_data = it
+		special_offers.append(i_off)
 
 	enchant_offers.clear()
 	var pool: Array[EnchantData] = ShopCatalog.enchant_pool(round_number)
@@ -182,8 +213,39 @@ func can_buy(offer: ShopOffer) -> String:
 				return "빈 인첸트 슬롯이 없습니다 — 인첸트를 판매해 자리를 만드세요"
 		ShopOffer.Kind.TRAIT:
 			if get_trait_targets(offer.trait_data).is_empty():
-				return "변환할 수 있는 주사위가 없습니다 (%s)" % _trait_requirement(offer.trait_data)
+				return offer.trait_data.get_missing_text()
+		ShopOffer.Kind.TAROT:
+			if inventory != null and not inventory.has_tarot_space():
+				return "타로 손패가 가득 찼습니다 (최대 %d장)" % Inventory.MAX_TAROT_HAND
+		ShopOffer.Kind.ITEM:
+			if offer.item_data.target == UserItemData.Target.DICE:
+				if get_item_targets(offer.item_data).is_empty():
+					return "이 아이템을 쓸 수 있는 주사위가 없습니다"
+			elif inventory != null and not inventory.has_item_space():
+				return "아이템 칸이 가득 찼습니다 (최대 %d개)" % Inventory.MAX_ITEMS
 	return ""
+
+
+## 아이템을 적용할 수 있는 내 주사위
+func get_item_targets(data: UserItemData) -> Array[DiceInstance]:
+	var out: Array[DiceInstance] = []
+	for d: DiceInstance in deck.all_dice():
+		if d != null and data.can_apply_to(d):
+			out.append(d)
+	return out
+
+
+## 대상 주사위를 골라야 하는 상품인가 (화면이 주사위 선택 연출을 띄운다)
+func needs_dice_target(offer: ShopOffer) -> bool:
+	return offer.kind == ShopOffer.Kind.TRAIT or (offer.kind == ShopOffer.Kind.ITEM and offer.item_data.target == UserItemData.Target.DICE)
+
+
+func get_offer_targets(offer: ShopOffer) -> Array[DiceInstance]:
+	if offer.kind == ShopOffer.Kind.TRAIT:
+		return get_trait_targets(offer.trait_data)
+	if offer.kind == ShopOffer.Kind.ITEM:
+		return get_item_targets(offer.item_data)
+	return []
 
 
 ## 이 성질로 변환할 수 있는 내 주사위 (이번 라운드에 굴린 주사위 제외)
@@ -217,6 +279,14 @@ func buy(offer: ShopOffer, target_dice: DiceInstance = null, target_slot: int = 
 				return "이 주사위는 변환할 수 없습니다 (%s)" % _trait_requirement(offer.trait_data)
 			player.spend_gold(offer.price)
 			target_dice.attach_trait(offer.trait_data, rng)
+		ShopOffer.Kind.TAROT:
+			player.spend_gold(offer.price)
+			acquire_tarot_cb.call(offer.tarot_data)
+		ShopOffer.Kind.ITEM:
+			if offer.item_data.target == UserItemData.Target.DICE and (target_dice == null or not get_item_targets(offer.item_data).has(target_dice)):
+				return "이 주사위에는 쓸 수 없습니다"
+			player.spend_gold(offer.price)
+			last_message = String(acquire_item_cb.call(offer.item_data, target_dice))
 		ShopOffer.Kind.DICE:
 			player.spend_gold(offer.price)
 			deck.add_to_reserve(DiceInstance.new(offer.dice_data))
@@ -287,3 +357,11 @@ func sell_enchant(dice: DiceInstance, slot: int) -> int:
 	player.add_gold(gold, PlayerState.GoldSource.OTHER)
 	changed.emit()
 	return gold
+
+
+## 등급 가중치 추첨 (낮은 등급일수록 자주): GameBalance.ENCHANT_RARITY_WEIGHTS 재사용
+func _pick_by_rank(pool: Array, rank_of: Callable) -> Variant:
+	var weights: Array = []
+	for x: Variant in pool:
+		weights.append(GameBalance.ENCHANT_RARITY_WEIGHTS[clampi(int(rank_of.call(x)), 0, 3)])
+	return ShopCatalog.pick_weighted(pool, weights, rng)

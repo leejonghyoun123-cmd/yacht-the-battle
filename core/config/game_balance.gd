@@ -17,6 +17,10 @@ const CONSUMABLE_SALE_PER_UNIT: int = 5
 const DAMAGE_PER_ENEMY_UNIT: int = 1
 ## 중첩칸(고정 유닛) 판매가 (총 누적 인원 1명당). 소비칸(5원)보다 낮게 둔다:
 ## 중첩칸은 위험 없이 영구 누적되므로 같은 값이면 소비칸을 쓸 이유가 사라진다.
+## 킹 칸 판매가: 누적 K 1장당
+const KING_SELL_PER_STACK: int = 150
+## 더 월드 무효 전투 위로금 (× 프레스티지 배율)
+const VOID_CONSOLATION: int = 200
 const STACK_SELL_PER_UNIT: int = 2
 
 # --- 연승·연패 보상 (기획서 00 5장) ---
@@ -42,6 +46,10 @@ const START_RESERVE_SLOTS: int = 2
 const ENCHANT_PRICE_BY_RARITY: Array[int] = [100, 200, 400, 800]
 ## 주사위 성질 변환 가격 (등급 C / B / A / S)
 const TRAIT_PRICE_BY_RANK: Array[int] = [150, 250, 400, 600]
+## 타로카드 가격 (등급 C / B / A / S)
+const TAROT_PRICE_BY_RANK: Array[int] = [150, 250, 400, 600]
+## 유저 아이템 가격 (등급 C / B / A / S)
+const ITEM_PRICE_BY_RANK: Array[int] = [100, 200, 350, 550]
 ## 리롤 가격: 한 라운드 안에서 할수록 25 → 50 → 75원… (다음 라운드에 25원부터)
 const SHOP_REROLL_BASE_COST: int = 25
 const SHOP_REROLL_COST_STEP: int = 25

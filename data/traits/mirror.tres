@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="MirrorTrait" format=3]
+
+[ext_resource type="Script" path="res://core/data/traits/mirror_trait.gd" id="1_q0r7x"]
+
+[resource]
+script = ExtResource("1_q0r7x")
+id = &"mirror"
+display_name = "거울 주사위"
+description = "굴리지 않고 바로 왼쪽 출전 주사위의 최종값을 복사한다.
+맨 왼쪽이거나 왼쪽도 거울이면 1."
+rank = 2
+badge = "거울"
+color = Color(0.8392157, 0.8666667, 0.9098039, 1)
+roll_pass = 2

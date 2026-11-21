@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="GlassTrait" format=3]
+
+[ext_resource type="Script" path="res://core/data/traits/glass_trait.gd" id="1_b2sf6"]
+
+[resource]
+script = ExtResource("1_b2sf6")
+final_multiplier = 3.0
+id = &"glass"
+display_name = "유리주사위"
+description = "최종 소환값 ×3.
+출전해 굴린 라운드가 끝나면 25% 확률로 깨진다 (인첸트는 자동 회수)."
+rank = 2
+badge = "유리"
+color = Color(0.7490196, 0.9137255, 0.9490196, 1)

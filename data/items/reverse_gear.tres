@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ReverseGearItem" format=3]
+
+[ext_resource type="Script" path="res://core/data/items/reverse_gear_item.gd" id="1_70u0t"]
+
+[resource]
+script = ExtResource("1_70u0t")
+id = &"reverse_gear"
+display_name = "역방향 기어"
+description = "고른 주사위의 인첸트를 5→1 역순으로 연산 (영구)."
+rank = 0
+target = 1
+icon_text = "⇄"

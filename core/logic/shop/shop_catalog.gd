@@ -33,6 +33,35 @@ const ENCHANT_PATHS: Array[String] = [
 ## 상점 성질 변환 칸에 나올 수 있는 성질
 const TRAIT_PATHS: Array[String] = [
 	"res://data/traits/poker.tres",
+	"res://data/traits/bone.tres",
+	"res://data/traits/blood.tres",
+	"res://data/traits/glass.tres",
+	"res://data/traits/fairy.tres",
+	"res://data/traits/xbottle.tres",
+	"res://data/traits/joker.tres",
+	"res://data/traits/mirror.tres",
+	"res://data/traits/magnet.tres",
+	"res://data/traits/gold.tres",
+	"res://data/traits/overload.tres",
+]
+## 상점 타로 칸에 나올 수 있는 카드 (2인 전용·상대 간섭 카드는 1인용 풀에서 제외)
+const TAROT_PATHS: Array[String] = [
+	"res://data/tarots/fool.tres", "res://data/tarots/star.tres", "res://data/tarots/moon.tres",
+	"res://data/tarots/sun.tres", "res://data/tarots/world.tres", "res://data/tarots/tower.tres",
+	"res://data/tarots/justice.tres", "res://data/tarots/magician.tres", "res://data/tarots/high_priestess.tres",
+	"res://data/tarots/empress.tres", "res://data/tarots/emperor.tres", "res://data/tarots/hierophant.tres",
+	"res://data/tarots/chariot.tres", "res://data/tarots/strength.tres", "res://data/tarots/hermit.tres",
+	"res://data/tarots/wheel.tres", "res://data/tarots/hanged_man.tres",
+]
+## 상점 아이템 칸에 나올 수 있는 유저 아이템 (식량·성벽은 상시 칸)
+const ITEM_PATHS: Array[String] = [
+	"res://data/items/didnt_roll.tres", "res://data/items/chisel.tres", "res://data/items/hand_drill.tres",
+	"res://data/items/weighted_dice.tres", "res://data/items/love_fifty.tres", "res://data/items/conditional_math.tres",
+	"res://data/items/feast.tres", "res://data/items/reverse_gear.tres", "res://data/items/overflow_battery.tres",
+	"res://data/items/last_digit_washer.tres", "res://data/items/empty_slot.tres", "res://data/items/bench_cheer.tres",
+	"res://data/items/dice_mirror.tres", "res://data/items/piggy_bank.tres", "res://data/items/dice_piggy_bank.tres",
+	"res://data/items/loan_shark.tres", "res://data/items/hand_forgery.tres", "res://data/items/insurance.tres",
+	"res://data/items/barracks_copier.tres",
 ]
 const DICE_DIR: String = "res://data/dice/"
 
@@ -94,6 +123,34 @@ static func trait_pool(round_number: int) -> Array[DiceTraitData]:
 	var pool: Array[DiceTraitData] = []
 	for path: String in TRAIT_PATHS:
 		var data: DiceTraitData = load(path) as DiceTraitData
+		if data != null and data.min_unlock_round <= round_number:
+			pool.append(data)
+	return pool
+
+
+static func tarot_price(data: TarotCardData) -> int:
+	return GameBalance.TAROT_PRICE_BY_RANK[clampi(int(data.rank), 0, GameBalance.TAROT_PRICE_BY_RANK.size() - 1)]
+
+
+static func item_price(data: UserItemData) -> int:
+	return GameBalance.ITEM_PRICE_BY_RANK[clampi(int(data.rank), 0, GameBalance.ITEM_PRICE_BY_RANK.size() - 1)]
+
+
+## 1인용 타로 풀 (PVP_ONLY·상대 간섭 제외)
+static func tarot_pool(round_number: int) -> Array[TarotCardData]:
+	var pool: Array[TarotCardData] = []
+	for path: String in TAROT_PATHS:
+		var data: TarotCardData = load(path) as TarotCardData
+		if data != null and data.min_unlock_round <= round_number and data.mode_restriction == TarotCardData.ModeRestriction.ALL \
+				and data.category != TarotCardData.Category.INTERFERE:
+			pool.append(data)
+	return pool
+
+
+static func item_pool(round_number: int) -> Array[UserItemData]:
+	var pool: Array[UserItemData] = []
+	for path: String in ITEM_PATHS:
+		var data: UserItemData = load(path) as UserItemData
 		if data != null and data.min_unlock_round <= round_number:
 			pool.append(data)
 	return pool

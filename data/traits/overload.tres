@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="OverloadTrait" format=3]
+
+[ext_resource type="Script" path="res://core/data/traits/overload_trait.gd" id="1_qierf"]
+
+[resource]
+script = ExtResource("1_qierf")
+final_multiplier = 2.0
+id = &"overload"
+display_name = "과부하 주사위"
+description = "최종 소환값 ×2.
+중첩칸에 놓아도 이번 라운드 한정 (승리 시 판매, 영구 누적 없음)."
+badge = "과부하"
+color = Color(1, 0.6509804, 0.3019608, 1)

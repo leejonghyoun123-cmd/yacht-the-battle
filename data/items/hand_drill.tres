@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="SlotExpandItem" format=3]
+
+[ext_resource type="Script" path="res://core/data/items/slot_expand_item.gd" id="1_ems88"]
+
+[resource]
+script = ExtResource("1_ems88")
+amount = 2
+id = &"hand_drill"
+display_name = "핸드드릴"
+description = "고른 주사위의 인첸트 슬롯 +2 (최대 5칸)."
+target = 1
+icon_text = "+2칸"

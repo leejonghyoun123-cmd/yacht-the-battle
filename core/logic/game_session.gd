@@ -25,6 +25,10 @@ var phase: Phase = Phase.BARRACKS
 ## 소환 목록: [{ "dice_index", "base", "value", "reason", "placed", "unit_id", "cell" }]
 var summons: Array[Dictionary] = []
 var battle: BattleSimulation = null
+## 보유 아이템·타로
+var inventory: Inventory = Inventory.new()
+## 이번 전투 소비칸(+과부하) 소환 환산 인원 (소비칸 보험)
+var battle_consumable_total: int = 0
 var last_summary: Dictionary = {}
 var _board_snapshot: Array = []
 
@@ -43,6 +47,9 @@ func _init(seed_value: int = 0) -> void:
 	board = BoardState.new()
 	streak = StreakState.new()
 	shop = ShopState.new(player, deck, rng)
+	shop.inventory = inventory
+	shop.acquire_item_cb = acquire_item
+	shop.acquire_tarot_cb = acquire_tarot
 	shop.restock(flow.round_number)
 	timer = RoundTimer.new()
 	timer.reset()
@@ -159,21 +166,58 @@ static func _approximate(value: int) -> int:
 
 func _on_yacht_recorded(_category: int, _gold: int) -> void:
 	summons.clear()
+	messages.clear()
 	for result: DiceRollResult in flow.results:
 		var mod: Dictionary = BossRules.modify_summon(get_round(), result)
-		# 포커카드 등 성질이 원시 눈금에 따라 해금하는 병과 (A → 거인, K → 킹)
+		# 포커카드 등 성질이 원시 눈금에 따라 해금하는 병과 (A → 거인, K → 킹) + 칸 보정(수트·로열·뼈)
 		var die: DiceInstance = deck.active[result.dice_index]
 		var unlocks: Array[StringName] = []
+		var mods: Array[StatModifier] = []
+		var temporary: bool = false
 		if die.trait_data != null:
 			unlocks = die.trait_data.get_unlocked_units(result.raw_roll, die)
+			mods = die.trait_data.get_cell_modifiers(result.raw_roll, die)
+			temporary = die.trait_data.forces_consumable()
+			_push_message(die.trait_data.on_confirm(die, result, self))
+		for it: ItemInstance in inventory.items:
+			if it.data is FeastItem:
+				_push_message((it.data as FeastItem).pay_pending(die, self))
 		summons.append({
 			"dice_index": result.dice_index, "base": result.summon_value,
 			"value": mod["value"], "reason": mod["reason"],
 			"raw": result.raw_roll, "unlocks": unlocks, "amount": 0,
+			"mods": mods, "temporary": temporary,
 			"placed": false, "unit_id": &"", "cell": -1,
 		})
+	for it: ItemInstance in inventory.items:
+		_push_message(it.data.on_record(it, self))
 	_board_snapshot = board.to_dict()
 	_set_phase(Phase.PLACEMENT)
+
+
+## 이번 확정·정산에서 생긴 알림 (화면이 띄우고 비운다)
+var messages: Array[String] = []
+
+
+func _push_message(text: String) -> void:
+	if text != "":
+		messages.append(text)
+
+
+## 추가 소환 (주사위 복제 거울). 주사위가 없는 소환이므로 dice_index = -1
+func add_bonus_summon(value: int, reason: String) -> void:
+	summons.append({
+		"dice_index": -1, "base": value, "value": maxi(1, value), "reason": "", "bonus_name": reason,
+		"raw": 0, "unlocks": [] as Array[StringName], "amount": 0,
+		"mods": [] as Array[StatModifier], "temporary": false,
+		"placed": false, "unit_id": &"", "cell": -1,
+	})
+
+
+## 소환에 쓰인 주사위 (추가 소환이면 null)
+func get_summon_dice(summon_index: int) -> DiceInstance:
+	var di: int = int(summons[summon_index]["dice_index"])
+	return deck.active[di] if di >= 0 and di < deck.active.size() else null
 
 
 func can_place(summon_index: int, unit_id: StringName, cell_index: int) -> bool:
@@ -207,7 +251,10 @@ func place(summon_index: int, unit_id: StringName, cell_index: int) -> bool:
 	if not can_place(summon_index, unit_id, cell_index):
 		return false
 	var amount: int = get_place_amount(summon_index, unit_id)
-	board.place(cell_index, unit_id, amount)
+	var s_mods: Array[StatModifier] = []
+	for m: StatModifier in summons[summon_index].get("mods", []):
+		s_mods.append(m)
+	board.place(cell_index, unit_id, amount, s_mods, bool(summons[summon_index].get("temporary", false)))
 	summons[summon_index]["amount"] = amount
 	summons[summon_index]["placed"] = true
 	summons[summon_index]["unit_id"] = unit_id
@@ -288,6 +335,10 @@ func _restore_board(snapshot: Array) -> void:
 		var cell: CellState = board.cells[entry["index"]]
 		cell.unit_id = StringName(entry["unit"])
 		cell.count = entry["count"]
+		cell.temp_count = int(entry.get("temp", 0))
+		cell.modifiers.clear()
+		for m: StatModifier in entry.get("mods", []):
+			cell.modifiers.append(m)
 	board.board_changed.emit()
 
 
@@ -299,7 +350,22 @@ func start_battle() -> BattleSimulation:
 		return null
 	battle = BattleSimulation.new()
 	var enemy: BoardState = EnemyTable.build_board(get_round())
-	battle.setup([board.get_spawn_packets(), enemy.get_spawn_packets()], rng.randi())
+	var mine: Array[SpawnPacket] = board.get_spawn_packets()
+	for it: ItemInstance in inventory.items:
+		it.data.modify_packets(it, mine)
+	battle_consumable_total = 0
+	for p: SpawnPacket in mine:
+		if p.is_consumable:
+			battle_consumable_total = FixedNum.add(battle_consumable_total, p.total_count)
+		else:
+			battle_consumable_total = FixedNum.add(battle_consumable_total, p.temp_count)
+	battle.round_number = get_round()
+	battle.setup([mine, enemy.get_spawn_packets()], rng.randi())
+	# 예약한 전투 타로 + 설치한 더 타워
+	for card: TarotCardData in inventory.tarot_reserved:
+		battle.add_battle_tarot(0, card)
+	if inventory.towers > 0 and inventory.tower_card != null:
+		battle.add_battle_tarot(0, inventory.tower_card, inventory.towers)
 	timer.stop()
 	_set_phase(Phase.BATTLE)
 	return battle
@@ -310,11 +376,17 @@ func settle_battle() -> Dictionary:
 	if phase != Phase.BATTLE or battle == null or not battle.is_finished():
 		return {}
 	var finished_round: int = get_round()
-	last_summary = BattleSettlement.settle_solo(battle.result, player, board, streak, finished_round)
+	messages.clear()
+	last_summary = BattleSettlement.settle_solo(battle.result, player, board, streak, finished_round, yacht.get_reward_multiplier())
 	last_summary["round"] = finished_round
+	for it: ItemInstance in inventory.items:
+		_push_message(it.data.on_settle(it, self, battle.result, last_summary))
 	battle = null
 	# 성벽증축 임시 실드는 해당 라운드에만 유효
 	player.round_shield = 0
+	# 예약 타로는 전투 1회 발동 후 소모
+	inventory.tarot_reserved.clear()
+	_round_end_hooks()
 	if player.is_dead():
 		_set_phase(Phase.GAME_OVER)
 		game_over.emit(false)
@@ -350,3 +422,156 @@ func apply_round_rules() -> void:
 	var r: int = get_round()
 	flow.roll_modifiers = BossRules.roll_modifiers(r)
 	flow.reroll_penalty = BossRules.reroll_penalty(r)
+	player.refill_justice_shield()
+	refresh_item_rules()
+
+
+## 아이템이 바뀌면 굴림 규칙 갱신 (아이템 목록·재굴림 보너스·족보 위조)
+func refresh_item_rules() -> void:
+	flow.roll_modifiers["items"] = inventory.get_sorted_items()
+	flow.reroll_bonus = inventory.get_reroll_bonus()
+	yacht.forgery = inventory.has_forgery()
+	changed.emit()
+
+
+## 라운드 종료: 주사위 성질(유리 파괴·X병 누적) → 아이템(저금통 적립·쿨타임)
+func _round_end_hooks() -> void:
+	for d: DiceInstance in deck.all_dice():
+		if d.trait_data != null:
+			_push_message(d.trait_data.on_round_end(d, deck.rolled_dice.has(d), self))
+	for it: ItemInstance in inventory.items:
+		it.data.on_round_end(it, self)
+	inventory.remove_expired()
+	refresh_item_rules()
+
+
+## 주사위 파괴 (인첸트 자동 회수, 출전 칸 보충). 회수 못 한 인첸트는 판매가로 환급.
+func destroy_dice(dice: DiceInstance) -> void:
+	var r: Dictionary = deck.destroy_dice(dice)
+	if int(r["refund"]) > 0:
+		player.add_gold(int(r["refund"]), PlayerState.GoldSource.OTHER)
+		_push_message("자리가 없어 회수 못 한 인첸트 환급 +%d원" % int(r["refund"]))
+
+
+# --- 유저 아이템 · 타로카드 -------------------------------------------------
+
+## 아이템 획득 (상점·조커). 대상 주사위가 필요한 아이템은 target에 바로 적용하고 사라진다.
+func acquire_item(data: UserItemData, target: DiceInstance = null) -> String:
+	var inst: ItemInstance = ItemInstance.new(data)
+	if data.target == UserItemData.Target.DICE:
+		if target == null or not data.can_apply_to(target):
+			return ""
+		data.apply_to_dice(target, inst)
+		if not data.is_consumed_on_apply():
+			inventory.items.append(inst)
+		refresh_item_rules()
+		return "%s → %s 적용" % [data.display_name, target.data.display_name]
+	var text: String = data.on_acquire(inst, self)
+	inventory.items.append(inst)
+	inventory.changed.emit()
+	refresh_item_rules()
+	return text if text != "" else "%s 획득" % data.display_name
+
+
+func can_activate_item(inst: ItemInstance) -> bool:
+	return is_preparing() and inventory.items.has(inst) and inst.data.can_activate(inst)
+
+
+## 능동 아이템 사용 (저금통 깨기)
+func activate_item(inst: ItemInstance) -> String:
+	if not can_activate_item(inst):
+		return ""
+	var text: String = inst.data.activate(inst, self)
+	if inst.data.is_consumed_on_activate():
+		inventory.items.erase(inst)
+	inventory.changed.emit()
+	refresh_item_rules()
+	return text
+
+
+func acquire_tarot(card: TarotCardData) -> bool:
+	if not inventory.has_tarot_space():
+		return false
+	inventory.tarot_hand.append(card)
+	inventory.changed.emit()
+	changed.emit()
+	return true
+
+
+## 타로 사용 가능 여부 ("" = 가능). 유닛칸 카드는 cell_index 필요.
+func can_use_tarot(card: TarotCardData, cell_index: int = -1) -> String:
+	if not is_preparing():
+		return "준비 단계에서만 사용할 수 있습니다"
+	if not inventory.tarot_hand.has(card):
+		return "손에 없는 카드입니다"
+	match card.category:
+		TarotCardData.Category.RESERVE:
+			if inventory.tarot_reserved.size() >= Inventory.MAX_RESERVED:
+				return "전투 예약은 %d장까지입니다" % Inventory.MAX_RESERVED
+		TarotCardData.Category.CELL:
+			if cell_index < 0 or cell_index >= BoardState.CELL_COUNT:
+				return "버프를 줄 내 배치 칸을 고르세요"
+		TarotCardData.Category.INTERFERE:
+			return "1인용에서는 쓸 수 없는 카드입니다"
+	return ""
+
+
+## 타로 사용: 예약 / 즉시 설치 / 칸 지정
+func use_tarot(card: TarotCardData, cell_index: int = -1) -> String:
+	var reason: String = can_use_tarot(card, cell_index)
+	if reason != "":
+		return reason
+	inventory.tarot_hand.erase(card)
+	match card.category:
+		TarotCardData.Category.RESERVE:
+			inventory.tarot_reserved.append(card)
+		TarotCardData.Category.WALL:
+			if card is TowerTarot:
+				inventory.towers += 1
+				inventory.tower_card = card
+			elif card is JusticeTarot:
+				player.justice_shield_max += (card as JusticeTarot).shield
+				player.justice_shield += (card as JusticeTarot).shield
+		TarotCardData.Category.CELL:
+			board.add_slot_modifier(cell_index, card.cell_modifier)
+			if not inventory.cell_tarots.has(cell_index):
+				inventory.cell_tarots[cell_index] = [] as Array[TarotCardData]
+			(inventory.cell_tarots[cell_index] as Array).append(card)
+	inventory.changed.emit()
+	changed.emit()
+	return ""
+
+
+## 예약 취소 (전투 전, 손으로 되돌리기)
+func unreserve_tarot(card: TarotCardData) -> bool:
+	if not is_preparing() or not inventory.tarot_reserved.has(card) or not inventory.has_tarot_space():
+		return false
+	inventory.tarot_reserved.erase(card)
+	inventory.tarot_hand.append(card)
+	inventory.changed.emit()
+	changed.emit()
+	return true
+
+
+## 조커 보상: 랜덤 아이템 (대상 지정 아이템 제외). 획득한 이름 반환, 실패 시 ""
+func grant_random_item() -> String:
+	if not inventory.has_item_space():
+		return ""
+	var pool: Array[UserItemData] = []
+	for d: UserItemData in ShopCatalog.item_pool(get_round()):
+		if d.target == UserItemData.Target.NONE and (d.stackable or not inventory.owns_item(d.id)):
+			pool.append(d)
+	if pool.is_empty():
+		return ""
+	var pick: UserItemData = pool[rng.randi_range(0, pool.size() - 1)]
+	acquire_item(pick)
+	return pick.display_name
+
+
+func grant_random_tarot() -> String:
+	var pool: Array[TarotCardData] = ShopCatalog.tarot_pool(get_round())
+	if pool.is_empty() or not inventory.has_tarot_space():
+		return ""
+	var pick: TarotCardData = pool[rng.randi_range(0, pool.size() - 1)]
+	acquire_tarot(pick)
+	return pick.display_name

@@ -55,8 +55,27 @@ var buff_haste_mult: float = 1.0
 ## 킹 본인: 피해를 나눠 받을 장판 안 아군 목록 (오라 갱신 때 채움)
 var share_targets: Array[BattleUnit] = []
 
+## 칸 보정·타로로 붙는 값
+var mod_damage_taken: float = 1.0
+var shield_ratio: float = 0.0
+## 남은 개인 실드 (피해를 먼저 흡수)
+var shield: float = 0.0
+var regen_ratio: float = 0.0
+var physical_mult: float = 1.0
+var magical_mult: float = 1.0
+var splash_damage_mult: float = 1.0
+## 남은 피해 면역·타겟 불가 시간 (더 허밋)
+var immune_time: float = 0.0
+## 전투 타로(예약 카드)로 붙는 전역 배율 — 시뮬레이션 스케줄러가 바꾼다
+var tarot_attack_mult: float = 1.0
+var tarot_haste_mult: float = 1.0
+var tarot_damage_taken_mult: float = 1.0
+## 지속 화염 피해 (더 썬): 초당 피해, 남은 시간
+var burn_per_second: float = 0.0
+var burn_time: float = 0.0
 
-func setup(p_id: int, p_team: int, packet_cell: int, p_data: UnitData, p_ratio: float, p_consumable: bool, total_count: int = 0) -> void:
+
+func setup(p_id: int, p_team: int, packet_cell: int, p_data: UnitData, p_ratio: float, p_consumable: bool, total_count: int = 0, mods: Array[StatModifier] = []) -> void:
 	id = p_id
 	team = p_team
 	cell_index = packet_cell
@@ -83,7 +102,10 @@ func setup(p_id: int, p_team: int, packet_cell: int, p_data: UnitData, p_ratio: 
 	branch_level = p_data.get_branch_level(total_count)
 	for b: UnitBranch in p_data.get_active_branches(total_count):
 		_apply_branch(b)
+	for m: StatModifier in mods:
+		m.apply_to(self)
 	hp = max_hp
+	shield = max_hp * shield_ratio
 	cooldown = attack_interval * 0.5
 
 
@@ -107,23 +129,31 @@ func _apply_branch(b: UnitBranch) -> void:
 
 ## 실제 공격 간격 (킹 장판 공속 버프 반영)
 func get_attack_interval() -> float:
-	return attack_interval / maxf(0.1, buff_haste_mult)
+	return attack_interval / maxf(0.1, buff_haste_mult * tarot_haste_mult)
 
 
 func get_attack_damage() -> float:
-	return attack * (1.0 + aura_attack) * buff_attack_mult
+	var type_mult: float = magical_mult if data.damage_type == UnitData.DamageType.MAGICAL else physical_mult
+	return attack * (1.0 + aura_attack) * buff_attack_mult * tarot_attack_mult * type_mult
 
 
 ## 받는 피해 배율 (방어 감소·힐러 오라·킹 장판)
 func get_damage_taken_mult() -> float:
-	return maxf(BattleRules.MIN_DAMAGE_TAKEN, (1.0 - damage_reduction) * (1.0 - aura_defense) * buff_damage_taken_mult)
+	return maxf(BattleRules.MIN_DAMAGE_TAKEN, (1.0 - damage_reduction) * (1.0 - aura_defense) * buff_damage_taken_mult * mod_damage_taken * tarot_damage_taken_mult)
 
 
 ## 받는 피해 계산 후 적용. 실제 깎인 체력을 반환한다.
 func take_damage(amount: float) -> float:
-	if not alive or amount <= 0.0:
+	if not alive or amount <= 0.0 or immune_time > 0.0:
 		return 0.0
-	var dealt: float = minf(hp, amount * get_damage_taken_mult())
+	var incoming: float = amount * get_damage_taken_mult()
+	if shield > 0.0:
+		var absorbed: float = minf(shield, incoming)
+		shield -= absorbed
+		incoming -= absorbed
+		if incoming <= 0.0:
+			return 0.0
+	var dealt: float = minf(hp, incoming)
 	hp -= dealt
 	if hp <= 0.0:
 		hp = 0.0
@@ -139,3 +169,13 @@ func heal(amount: float) -> void:
 ## 현재 남은 환산 인원 (체력 비율 반영 없이 생존 개체 기준)
 func get_equivalent() -> float:
 	return ratio if alive else 0.0
+
+
+## 고정 비율 피해 (타로 폭격 등): 받는 피해 배율·실드는 적용, 반사·분담은 없음
+func take_true_damage(amount: float) -> float:
+	return take_damage(amount)
+
+
+## 타겟으로 지정할 수 있는가 (더 허밋 면역 중이면 불가)
+func is_targetable() -> bool:
+	return alive and immune_time <= 0.0

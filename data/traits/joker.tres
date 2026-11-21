@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="JokerTrait" format=3]
+
+[ext_resource type="Script" path="res://core/data/traits/joker_trait.gd" id="1_yn65b"]
+
+[resource]
+script = ExtResource("1_yn65b")
+id = &"joker"
+display_name = "조커의 랜덤주사위"
+description = "굴릴 때마다 결과 1개 추첨, 확정 시 발동.
+보상 70%: 아이템 / 타로 / 소환값 ×2 / 체력 30% 회복
+저주 30%: 체력 -20% / 소환값 ×0.5"
+badge = "조커"
+color = Color(0.78039217, 0.60784316, 1, 1)

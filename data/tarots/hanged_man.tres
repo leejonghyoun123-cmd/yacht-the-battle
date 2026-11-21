@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TarotCardData" format=3]
+
+[ext_resource type="Script" path="res://core/data/stat_modifier.gd" id="1_thlud"]
+[ext_resource type="Script" path="res://core/data/tarot_card_data.gd" id="2_e54ek"]
+
+[sub_resource type="Resource" id="Resource_jsefc"]
+script = ExtResource("1_thlud")
+display_name = "행맨: 받는 피해 -40%"
+damage_taken_mult = 0.6
+
+[resource]
+script = ExtResource("2_e54ek")
+id = &"hanged_man"
+display_name = "더 행맨"
+numeral = 12
+description = "[칸 지정] 그 칸 유닛의 받는 피해 -40%."
+rank = 2
+cell_modifier = SubResource("Resource_jsefc")

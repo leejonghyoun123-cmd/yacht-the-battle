@@ -43,7 +43,7 @@ func _initialize() -> void:
 	_eq(s.flow.get_reroll_limit(), GameBalance.REROLLS_PER_ROUND - 1, "15R: 재굴림 1회 감소")
 	s.flow.round_number = 9
 	s.apply_round_rules()
-	_eq(s.flow.roll_modifiers, { "disabled_slots": [0] }, "9R 진입 시 슬롯 정지 규칙 적용")
+	_eq(s.flow.roll_modifiers.get("disabled_slots"), [0], "9R 진입 시 슬롯 정지 규칙 적용")
 	_eq(s.flow.get_reroll_limit(), GameBalance.REROLLS_PER_ROUND, "9R은 재굴림 감소 없음")
 	print("===== 결과: 통과 %d / 실패 %d =====" % [_pass_count, _fail_count])
 	quit(1 if _fail_count > 0 else 0)

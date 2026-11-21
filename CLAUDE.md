@@ -77,3 +77,10 @@
 - 주사위 성질: DiceTraitData(.tres, data/traits, tools/generate_traits.gd) + DiceInstance.trait_data. 새 성질은 ShopCatalog.TRAIT_PATHS에 등록. 가격 GameBalance.TRAIT_PRICE_BY_RANK(C150/B250/A400/S600).
 - 전투 화면: 유닛은 UnitFigure(스틱맨) — 아트 교체 시 이 파일만 바꾼다. 데미지 숫자는 동시 70개 제한 + 같은 대상 0.12초 안 합산.
 - 테스트 추가: test_king_poker(45).
+- 칸 보정: StatModifier(.tres 하위 리소스 또는 코드 static 캐시) — 포커 수트·로열, 뼈주사위는 CellState.modifiers(칸이 비면 사라짐), 타로 유닛칸 버프는 BoardState.slot_modifiers(칸 자리 영구). 같은 리소스는 한 칸에 한 번만.
+- 성질 훅 순서: prepare_context → modify_base_faces → 추첨 → override_raw → on_rolled → 아이템 → 인첸트 → on_post_pipeline → 아이템 최종 → (기록) on_confirm → (정산 후) on_round_end. 해석기 3-Pass: 일반 → 자석 → 거울. 파괴는 GameSession.destroy_dice(인첸트 자동 회수·5주사위 보충)로만.
+- 과부하 주사위: 중첩칸에 놓으면 CellState.temp_count(이번 라운드 한정, 승리 시 판매).
+- 유저 아이템: UserItemData 훅 + ItemInstance.state, GameSession.inventory(최대 6). 타로: TarotCardData(RESERVE 예약 2장 / WALL 설치 / CELL 칸 지정), 전투 효과는 시뮬레이션 경과 시간으로만(BattleSimulation.add_battle_tarot). 1인용 상점 풀은 PVP_ONLY·상대 간섭 제외.
+- GDScript에서 get_stack은 내장 함수라 메서드 이름으로 쓰면 파싱 오류. perl 치환으로 "\n"을 넣으면 실제 줄바꿈이 들어가 문자열이 깨진다 — 문자열 속 \n은 Edit 도구로 넣는다.
+- 주사위 아이콘은 ItemIcon.setup_dice(주사위, 눈금글자): 2면 = 동전, 포커카드 = 트럼프 카드(수트는 도형으로 그림). 대상 주사위 선택은 DicePickOverlay(검은 40% + 변환 연출).
+- 테스트 추가: test_content_v2(64).

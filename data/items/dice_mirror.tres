@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="DiceMirrorItem" format=3]
+
+[ext_resource type="Script" path="res://core/data/items/dice_mirror_item.gd" id="1_n6o0n"]
+
+[resource]
+script = ExtResource("1_n6o0n")
+id = &"dice_mirror"
+display_name = "주사위 복제 거울"
+description = "얏츠판 기록 시 가방 맨 앞 주사위의 기대값만큼 1회 추가 소환 (쿨타임 3라운드)."
+rank = 2
+icon_text = "◫"
+stackable = false

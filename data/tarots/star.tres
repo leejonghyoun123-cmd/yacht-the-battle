@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="StarTarot" format=3]
+
+[ext_resource type="Script" path="res://core/data/tarots/star_tarot.gd" id="1_twb8n"]
+
+[resource]
+script = ExtResource("1_twb8n")
+id = &"star"
+display_name = "더 스타"
+numeral = 17
+description = "[예약] 교전 10초 동안 0.5초마다 적 진영에 별똥별 (반경 120, 최대 체력 8% + 10)."
+rank = 2
+category = 0

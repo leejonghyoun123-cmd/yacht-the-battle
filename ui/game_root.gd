@@ -189,6 +189,13 @@ func _show_settlement(summary: Dictionary) -> void:
 		if summary["streak_bonus"] > 0:
 			lines.append("%d연패 보상  +%s원" % [session.streak.loss_streak, NumberFormatter.format_num(summary["streak_bonus"])])
 		lines.append("소비칸 병력은 사라졌습니다.")
+	elif summary.get("reason", "") == "void":
+		lines.append("더 월드: 전투 무효 — 피해 없음, 소비칸 유지")
+		lines.append("위로금  +%s원" % NumberFormatter.format_num(summary.get("void_gold", 0)))
+	# 성질·아이템 효과 알림 (유리 파괴, X병 소모, 소비칸 보험 등)
+	for m: String in session.messages:
+		lines.append(m)
+	session.messages.clear()
 	lines.append("")
 	lines.append("골드 %s · 체력 %d / %d" % [NumberFormatter.format_num(session.player.gold), session.player.hp, session.player.max_hp])
 	if session.phase == GameSession.Phase.GAME_OVER:

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="FinalBonusItem" format=3]
+
+[ext_resource type="Script" path="res://core/data/items/final_bonus_item.gd" id="1_ojfe2"]
+
+[resource]
+script = ExtResource("1_ojfe2")
+id = &"empty_slot"
+display_name = "빈 슬롯의 미학"
+description = "개방됐지만 비어 있는 인첸트 슬롯 1칸당 최종값 +25%."
+priority = 70
+icon_text = "○"

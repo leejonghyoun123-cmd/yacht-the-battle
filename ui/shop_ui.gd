@@ -9,6 +9,7 @@ signal back_requested
 
 const ItemIcon: GDScript = preload("res://ui/widgets/item_icon.gd")
 const DiceBar: GDScript = preload("res://ui/widgets/dice_bar.gd")
+const DicePickOverlay: GDScript = preload("res://ui/widgets/dice_pick_overlay.gd")
 
 var session: GameSession
 var tooltip: Node
@@ -22,6 +23,7 @@ var _reroll_button: Button
 var _dice_bar: VBoxContainer
 var _pending_offer: ShopOffer = null
 var _confirm: ConfirmationDialog
+var _pick_overlay: Control
 
 
 func _ready() -> void:
@@ -103,6 +105,14 @@ func _ready() -> void:
 		_cancel_buy_mode()
 		back_requested.emit())
 	bottom.add_child(back)
+
+	_pick_overlay = DicePickOverlay.new()
+	add_child(_pick_overlay)
+	_pick_overlay.connect("chosen", _on_pick_chosen)
+	_pick_overlay.connect("cancelled", func() -> void:
+		_pending_offer = null
+		_show_message("구매를 취소했습니다")
+		refresh())
 
 	_confirm = ConfirmationDialog.new()
 	_confirm.title = "판매 확인"
@@ -212,14 +222,28 @@ func _setup_icon(icon: Control, offer: ShopOffer) -> void:
 		ShopOffer.Kind.WALL:
 			icon.call("setup", "wall")
 		ShopOffer.Kind.DICE:
-			icon.call("setup", "dice", String(offer.dice_data.id), Color("f4f1e8"))
+			if offer.dice_data.faces.size() == 2:
+				icon.call("setup", "coin", "2면")
+			else:
+				icon.call("setup", "dice", String(offer.dice_data.id), Color("f4f1e8"))
 		ShopOffer.Kind.BAG:
 			icon.set("size_level", offer.bag_tier + 1)
 			icon.call("setup", "bag")
 		ShopOffer.Kind.ENCHANT:
 			icon.call("setup", "enchant", offer.enchant_data.get_icon_text(), UiConfig.rarity_color(int(offer.enchant_data.rarity)))
 		ShopOffer.Kind.TRAIT:
-			icon.call("setup", "dice", offer.trait_data.badge, UiConfig.rarity_color(int(offer.trait_data.rank)))
+			if offer.trait_data is PokerTrait:
+				icon.set("suit", PokerTrait.SuitType.SPADE)
+				icon.call("setup", "card", "A")
+			else:
+				icon.set("sub_text", offer.trait_data.badge)
+				icon.set("sub_color", offer.trait_data.color)
+				icon.call("setup", "dice", "성질", Color("f4f1e8").lerp(offer.trait_data.color, 0.35))
+		ShopOffer.Kind.TAROT:
+			icon.set("sub_text", offer.tarot_data.display_name)
+			icon.call("setup", "tarot", TarotCardData.roman(offer.tarot_data.numeral))
+		ShopOffer.Kind.ITEM:
+			icon.call("setup", "item", offer.item_data.icon_text, UiConfig.rarity_color(int(offer.item_data.rank)))
 		_:
 			icon.call("setup", "locked")
 
@@ -251,16 +275,38 @@ func _on_offer_pressed(offer: ShopOffer) -> void:
 		_show_message("[%s] 장착할 빈 슬롯(초록 테두리)을 클릭하세요. 상품을 다시 누르면 취소." % offer.title)
 		refresh()
 		return
-	if offer.kind == ShopOffer.Kind.TRAIT:
-		# 성질 변환: 변환할 주사위(초록 테두리)를 고른다
+	if session.shop.needs_dice_target(offer):
+		# 성질 변환·대상 지정 아이템: 화면을 어둡게 덮고 고를 수 있는 주사위만 앞에 띄운다
 		_pending_offer = offer
-		_dice_bar.set("trait_targets", session.shop.get_trait_targets(offer.trait_data))
-		_dice_bar.set("show_reserve", true)
-		_dice_bar.call("refresh")
-		_show_message("[%s] 변환할 주사위(초록 테두리)를 클릭하세요. 상품을 다시 누르면 취소." % offer.title)
-		refresh()
+		var verb: String = "변환할" if offer.kind == ShopOffer.Kind.TRAIT else "적용할"
+		_pick_overlay.call("open", "[%s] %s 주사위를 고르세요" % [offer.title, verb], session.shop.get_offer_targets(offer), session.deck)
 		return
-	_show_message(_result_text(session.shop.buy(offer), "%s 구매!" % offer.title))
+	var result: String = session.shop.buy(offer)
+	var note: String = session.shop.last_message
+	session.shop.last_message = ""
+	_show_message(_result_text(result, note if note != "" else "%s 구매!" % offer.title))
+
+
+## 선택창에서 주사위를 고름 → 구매 → 성공하면 변환 연출
+func _on_pick_chosen(dice: DiceInstance) -> void:
+	var offer: ShopOffer = _pending_offer
+	_pending_offer = null
+	if offer == null:
+		_pick_overlay.call("close")
+		return
+	var result: String = session.shop.buy(offer, dice)
+	if result != "":
+		_pick_overlay.call("close")
+		_show_message(result)
+		return
+	var caption: String = "%s → %s!" % [dice.data.display_name, offer.title]
+	if offer.kind == ShopOffer.Kind.TRAIT and dice.trait_data is PokerTrait:
+		caption = "포커카드로 변환! (%s)" % (dice.trait_data as PokerTrait).get_state_text(dice)
+	_pick_overlay.call("play_transform", dice, caption)
+	var note: String = session.shop.last_message
+	session.shop.last_message = ""
+	_show_message(note if note != "" else caption)
+	refresh()
 
 
 func _on_slot_target_chosen(dice: DiceInstance, slot: int) -> void:

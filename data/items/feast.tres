@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="FeastItem" format=3]
+
+[ext_resource type="Script" path="res://core/data/items/feast_item.gd" id="1_8t8yu"]
+
+[resource]
+script = ExtResource("1_8t8yu")
+id = &"feast"
+display_name = "?의 향연"
+description = "지정 눈금이 나오면 보너스 1개:
+이번 굴림 ×2 / 확정 시 +60원 / 확정 시 실드 +25."
+rank = 0
+priority = 30
+icon_text = "?"

@@ -1,0 +1,46 @@
+[gd_resource type="Resource" script_class="TarotCardData" format=3]
+
+[ext_resource type="Script" path="res://core/data/stat_modifier.gd" id="1_uiqm4"]
+[ext_resource type="Script" path="res://core/data/random_stat_modifier.gd" id="2_vv2ue"]
+[ext_resource type="Script" path="res://core/data/tarot_card_data.gd" id="3_jedpx"]
+
+[sub_resource type="Resource" id="Resource_ft4vf"]
+script = ExtResource("1_uiqm4")
+display_name = "휠: 공격력 ×2"
+attack_mult = 2.0
+
+[sub_resource type="Resource" id="Resource_gfcby"]
+script = ExtResource("1_uiqm4")
+display_name = "휠: 공격 속도 ×2"
+haste_mult = 2.0
+
+[sub_resource type="Resource" id="Resource_ayscf"]
+script = ExtResource("1_uiqm4")
+display_name = "휠: 최대 체력 ×2"
+hp_mult = 2.0
+
+[sub_resource type="Resource" id="Resource_uc0id"]
+script = ExtResource("1_uiqm4")
+display_name = "휠: 체력 60% 실드"
+shield_ratio = 0.6
+
+[sub_resource type="Resource" id="Resource_1e1hu"]
+script = ExtResource("1_uiqm4")
+display_name = "휠: 모든 스탯 ×1.5"
+attack_mult = 1.5
+hp_mult = 1.5
+haste_mult = 1.5
+
+[sub_resource type="Resource" id="Resource_8ilyy"]
+script = ExtResource("2_vv2ue")
+pool = Array[ExtResource("1_uiqm4")]([SubResource("Resource_ft4vf"), SubResource("Resource_gfcby"), SubResource("Resource_ayscf"), SubResource("Resource_uc0id"), SubResource("Resource_1e1hu")])
+display_name = "휠 오브 포츈: 전투마다 무작위 1종"
+
+[resource]
+script = ExtResource("3_jedpx")
+id = &"wheel"
+display_name = "휠 오브 포츈"
+numeral = 10
+description = "[칸 지정] 전투마다 그 칸에 무작위 증폭 1종
+(공격 ×2 / 공속 ×2 / 체력 ×2 / 실드 60% / 모든 스탯 ×1.5)."
+cell_modifier = SubResource("Resource_8ilyy")

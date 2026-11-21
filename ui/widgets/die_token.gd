@@ -61,7 +61,7 @@ func setup(p_dice: DiceInstance, face: String, value_text: String, value_color: 
 	_icon = ItemIcon.new()
 	var icon_size: float = 46.0 if small else 64.0
 	_icon.custom_minimum_size = Vector2(icon_size, icon_size)
-	_icon.call("setup", "dice", face, Color("f4f1e8") if not locked else Color("d6d0c2"))
+	_icon.call("setup_dice", p_dice, face, Color("f4f1e8") if not locked else Color("d6d0c2"))
 	holder.add_child(_icon)
 	holder.gui_input.connect(func(e: InputEvent) -> void:
 		if e is InputEventMouseButton and (e as InputEventMouseButton).pressed and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:

@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="HandForgeryItem" format=3]
+
+[ext_resource type="Script" path="res://core/data/items/hand_forgery_item.gd" id="1_s46vd"]
+
+[resource]
+script = ExtResource("1_s46vd")
+id = &"hand_forgery"
+display_name = "족보 위조권"
+description = "스트레이트 숫자 1개 누락 허용, 4개 동일도 얏츠 인정."
+rank = 2
+icon_text = "✎"
+stackable = false

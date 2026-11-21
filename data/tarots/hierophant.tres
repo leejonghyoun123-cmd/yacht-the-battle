@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="TarotCardData" format=3]
+
+[ext_resource type="Script" path="res://core/data/stat_modifier.gd" id="1_cuiu6"]
+[ext_resource type="Script" path="res://core/data/tarot_card_data.gd" id="2_uoql8"]
+
+[sub_resource type="Resource" id="Resource_kfn6i"]
+script = ExtResource("1_cuiu6")
+display_name = "하이로펀트: 체력 30% 실드"
+shield_ratio = 0.3
+
+[resource]
+script = ExtResource("2_uoql8")
+id = &"hierophant"
+display_name = "더 하이로펀트"
+numeral = 5
+description = "[칸 지정] 그 칸 유닛이 전투 시작 시 최대 체력 30% 실드."
+cell_modifier = SubResource("Resource_kfn6i")

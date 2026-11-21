@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="DidntRollItem" format=3]
+
+[ext_resource type="Script" path="res://core/data/items/didnt_roll_item.gd" id="1_fqcfq"]
+
+[resource]
+script = ExtResource("1_fqcfq")
+id = &"didnt_roll"
+display_name = "나 안굴렸는데?"
+description = "매 라운드 재굴림 +1 (영구)."
+rank = 2
+icon_text = "↻+1"

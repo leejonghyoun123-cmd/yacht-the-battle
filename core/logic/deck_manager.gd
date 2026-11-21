@@ -254,3 +254,51 @@ func unlock_reserve_slots(count: int) -> int:
 	if reserve_unlocked != before:
 		deck_changed.emit()
 	return reserve_unlocked - before
+
+
+## 주사위 파괴 (유리·X병·더 데빌). 03 문서 가드레일:
+##   1) 끼워진 인첸트는 다른 주사위의 빈 슬롯으로 자동 회수 (빈 슬롯이 없으면 판매가로 환급)
+##   2) 주사위 제거 3) 출전 칸이 비면 가방에서 보충, 가방도 비면 기본 6면 주사위 생성 (5주사위 소프트락 방지)
+## 반환: { "moved": 회수한 인첸트 수, "refund": 환급 골드 }
+func destroy_dice(dice: DiceInstance) -> Dictionary:
+	var out: Dictionary = { "moved": 0, "refund": 0 }
+	if dice == null:
+		return out
+	var enchants: Array[EnchantInstance] = []
+	for i: int in range(DiceInstance.MAX_SLOTS):
+		if dice.slots[i] != null:
+			enchants.append(dice.slots[i])
+			dice.slots[i] = null
+	var ai: int = active.find(dice)
+	if ai >= 0:
+		var ri: int = first_reserve_index()
+		if ri >= 0:
+			active[ai] = reserve[ri]
+			reserve[ri] = null
+		else:
+			active[ai] = DiceInstance.new(ShopCatalog.load_dice(&"d6"))
+	else:
+		var rj: int = reserve.find(dice)
+		if rj >= 0:
+			reserve[rj] = null
+	rolled_dice.erase(dice)
+	for e: EnchantInstance in enchants:
+		if _place_anywhere(e):
+			out["moved"] = int(out["moved"]) + 1
+		else:
+			out["refund"] = int(out["refund"]) + ShopCatalog.sell_value(ShopCatalog.enchant_price(e.data))
+	deck_changed.emit()
+	return out
+
+
+func _place_anywhere(e: EnchantInstance) -> bool:
+	for d: DiceInstance in all_dice():
+		for i: int in range(d.unlocked_slots):
+			if d.slots[i] == null:
+				return d.equip(e, i)
+	return false
+
+
+## 가방에 들어 있는 주사위 수 (벤치 응원봉)
+func get_bench_count() -> int:
+	return reserve_filled_indices().size()

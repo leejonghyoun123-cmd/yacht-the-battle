@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="SunTarot" format=3]
+
+[ext_resource type="Script" path="res://core/data/tarots/sun_tarot.gd" id="1_vw2pr"]
+
+[resource]
+script = ExtResource("1_vw2pr")
+id = &"sun"
+display_name = "더 썬"
+numeral = 19
+description = "[예약] 교전 3초에 적 밀집 지점에 투하 (반경 180).
+적: 5초간 초당 최대 체력 6% 화염 / 아군: 최대 체력 30% 회복."
+rank = 2
+category = 0

@@ -162,6 +162,9 @@ func _process(delta: float) -> void:
 	_anim_time += delta * float(maxi(1, speed))
 	_tick_spawn_anims(delta)
 	_whistle_flash = maxf(0.0, _whistle_flash - delta)
+	_tarot_banner_time = maxf(0.0, _tarot_banner_time - delta)
+	if _tarot_banner_time <= 0.0:
+		_tarot_banner = ""
 	match view_state:
 		ViewState.OPEN_GATES:
 			_gate_open = clampf(_state_time / GATE_OPEN_TIME, 0.0, 1.0)
@@ -207,6 +210,13 @@ func _consume_events() -> void:
 				_add_effect({ "kind": "death", "to": e["pos"], "life": 0.6 })
 			"whistle":
 				_whistle_flash = 1.2
+			"tarot":
+				_tarot_banner = "타로 발동: " + String(e["name"]) if _tarot_banner == "" else _tarot_banner + " · " + String(e["name"])
+				_tarot_banner_time = 2.5
+			"tarot_blast":
+				_add_effect({ "kind": "tarot_" + String(e["kind"]), "to": e["pos"], "radius": e["radius"], "life": 0.9 if e["kind"] == "sun" else 0.45 })
+			"zap":
+				_add_effect({ "kind": "zap", "from": e["from"], "to": e["to"], "life": 0.25 })
 
 
 func _add_effect(effect: Dictionary) -> void:
@@ -436,6 +446,7 @@ func _draw() -> void:
 				var c: Color = Color(1, 0.3, 0.3, 0.8 * (1.0 - t))
 				draw_line(dp + Vector2(-s, -s), dp + Vector2(s, s), c, 1.5)
 				draw_line(dp + Vector2(-s, s), dp + Vector2(s, -s), c, 1.5)
+	_draw_tarot_effects()
 	_draw_damage_numbers()
 	# 준비 단계: 칸 강조·이름표 (유닛 위에 겹쳐도 읽히도록 외곽선 글씨)
 	_draw_barracks_overlay()
@@ -732,6 +743,8 @@ func _update_hud() -> void:
 					_phase_label.text = "호각까지 %.1f초" % maxf(0.0, BattleRules.WHISTLE_DELAY - sim.phase_time)
 				BattleSimulation.Phase.FIGHT:
 					_phase_label.text = ("호각! 돌격!" if _whistle_flash > 0.0 else "교전 %.1f초 / %d초" % [sim.phase_time, int(BattleRules.FIGHT_TIME_LIMIT)])
+					if _tarot_banner_time > 0.0:
+						_phase_label.text += "\n" + _tarot_banner
 				BattleSimulation.Phase.ENDED:
 					_phase_label.text = "전투 종료"
 
@@ -745,6 +758,9 @@ func _show_result() -> void:
 	elif r.winner != BattleResult.DRAW:
 		title = "패배…"
 	var reason: String = "전멸" if r.reason == "annihilation" else "시간 초과 (남은 체력 비교)"
+	if r.reason == "void":
+		title = "전투 무효"
+		reason = "더 월드 — 시간 정지"
 	_result_label.text = "%s\n%s · 교전 %.1f초\n생존 환산 인원  아군 %s명 / 적군 %s명" % [
 		title, reason, r.fight_duration,
 		NumberFormatter.format_num(r.get_survivor_total(viewer_team)),
@@ -766,3 +782,61 @@ func _label(text: String, font_size: int, color: Color) -> Label:
 ## 리게임 직후 등 마우스 위치 갱신이 늦을 때 엉뚱한 칸이 눌리는 문제를 막는다.
 func _event_world_pos(event: InputEventMouse) -> Vector2:
 	return get_viewport().get_canvas_transform().affine_inverse() * event.position
+
+
+# =========================================================================
+# 타로 연출 (별똥별·태양·번개·발동 알림)
+# =========================================================================
+
+var _tarot_banner: String = ""
+var _tarot_banner_time: float = 0.0
+
+
+func _draw_tarot_effects() -> void:
+	for e: Dictionary in _effects:
+		var t: float = float(e["age"]) / float(e["life"])
+		match e["kind"]:
+			"tarot_star":
+				var p: Vector2 = to_screen(e["to"])
+				var drop: Vector2 = p + Vector2(-60.0, -140.0) * (1.0 - minf(1.0, t * 2.5))
+				draw_line(drop + Vector2(-18, -30), drop, Color(1.0, 0.95, 0.6, 0.9 * (1.0 - t)), 3.0)
+				if t > 0.35:
+					var k: float = (t - 0.35) / 0.65
+					_draw_iso_ring(e["to"], float(e["radius"]) * (0.3 + 0.7 * k), Color(1.0, 0.9, 0.5, 0.6 * (1.0 - k)), 3.0)
+			"tarot_sun":
+				_draw_iso_ring(e["to"], float(e["radius"]), Color(1.0, 0.6, 0.15, 0.7 * (1.0 - t)), 4.0)
+				_draw_iso_disc(e["to"], float(e["radius"]) * (0.4 + 0.6 * t), Color(1.0, 0.75, 0.2, 0.25 * (1.0 - t)))
+			"tarot_world":
+				draw_rect(Rect2(-5000, -5000, 10000, 10000), Color(0.6, 0.8, 1.0, 0.25 * (1.0 - t)))
+			"zap":
+				var a: Vector2 = to_screen(e["from"])
+				var b: Vector2 = to_screen(e["to"])
+				var pts: PackedVector2Array = PackedVector2Array([a])
+				for i: int in range(1, 5):
+					var mid: Vector2 = a.lerp(b, float(i) / 5.0)
+					pts.append(mid + Vector2(sin(float(i) * 7.3 + _anim_time * 40.0), cos(float(i) * 5.1)) * 6.0)
+				pts.append(b)
+				draw_polyline(pts, Color(0.7, 0.9, 1.0, 1.0 - t), 2.5)
+	# 진행 중 화염 (더 썬): 불붙은 유닛 발밑 주황 점
+	if sim != null:
+		for u: BattleUnit in sim.units:
+			if u.alive and u.burn_time > 0.0:
+				draw_circle(to_screen(u.pos) + Vector2(0, -u.radius), u.radius * 0.6, Color(1.0, 0.5, 0.1, 0.6))
+			if u.alive and u.shield > 0.0:
+				draw_arc(to_screen(u.pos) + Vector2(0, -u.radius * 1.6), u.radius * 1.9, 0.0, TAU, 14, Color(0.6, 0.85, 1.0, 0.55), 1.5)
+
+
+func _draw_iso_ring(center: Vector2, radius: float, color: Color, width: float) -> void:
+	var pts: PackedVector2Array = PackedVector2Array()
+	for i: int in range(25):
+		var a: float = TAU * float(i) / 24.0
+		pts.append(to_screen(center + Vector2(cos(a), sin(a)) * radius))
+	draw_polyline(pts, color, width)
+
+
+func _draw_iso_disc(center: Vector2, radius: float, color: Color) -> void:
+	var pts: PackedVector2Array = PackedVector2Array()
+	for i: int in range(24):
+		var a: float = TAU * float(i) / 24.0
+		pts.append(to_screen(center + Vector2(cos(a), sin(a)) * radius))
+	draw_colored_polygon(pts, color)

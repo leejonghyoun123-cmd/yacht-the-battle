@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="JusticeTarot" format=3]
+
+[ext_resource type="Script" path="res://core/data/tarots/justice_tarot.gd" id="1_vrbc0"]
+
+[resource]
+script = ExtResource("1_vrbc0")
+id = &"justice"
+display_name = "저스티스"
+numeral = 11
+description = "[설치] 매 라운드 본체 실드 +35 자동 충전 (여러 장이면 누적)."
+category = 1

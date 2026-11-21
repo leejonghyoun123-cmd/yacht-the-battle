@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="LoanSharkItem" format=3]
+
+[ext_resource type="Script" path="res://core/data/items/loan_shark_item.gd" id="1_g6qre"]
+
+[resource]
+script = ExtResource("1_g6qre")
+id = &"loan_shark"
+display_name = "고리대금 계약서"
+description = "즉시 +800원. 이후 3라운드 동안 얏츠판·연승 보상의 50%를 자동 상환."
+icon_text = "₩"
+stackable = false

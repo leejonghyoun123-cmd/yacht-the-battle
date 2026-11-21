@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="XBottleTrait" format=3]
+
+[ext_resource type="Script" path="res://core/data/traits/xbottle_trait.gd" id="1_n4lla"]
+
+[resource]
+script = ExtResource("1_n4lla")
+id = &"xbottle"
+display_name = "1회용 X병 주사위"
+description = "가방에 있어도 매 라운드 스택 +25 (최대 500).
+출전하면 눈금 대신 스택값으로 연산하고, 라운드가 끝나면 사라진다."
+badge = "X병"
+color = Color(0.654902, 0.827451, 0.5411765, 1)

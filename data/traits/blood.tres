@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BloodTrait" format=3]
+
+[ext_resource type="Script" path="res://core/data/traits/blood_trait.gd" id="1_8kkb4"]
+
+[resource]
+script = ExtResource("1_8kkb4")
+final_multiplier = 2.5
+id = &"blood"
+display_name = "피주사위"
+description = "최종 소환값 ×2.5.
+확정 시 원시 눈금만큼 체력 소모 (최대 50, 체력 1 아래로는 안 내려감)."
+rank = 2
+badge = "피"
+color = Color(0.8784314, 0.3529412, 0.3529412, 1)

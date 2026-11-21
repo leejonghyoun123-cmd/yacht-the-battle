@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TarotCardData" format=3]
+
+[ext_resource type="Script" path="res://core/data/stat_modifier.gd" id="1_wiiy5"]
+[ext_resource type="Script" path="res://core/data/tarot_card_data.gd" id="2_mmrxb"]
+
+[sub_resource type="Resource" id="Resource_ie3kl"]
+script = ExtResource("1_wiiy5")
+display_name = "허밋: 첫 5초 면역·타겟 불가"
+immune_seconds = 5.0
+
+[resource]
+script = ExtResource("2_mmrxb")
+id = &"hermit"
+display_name = "더 허밋"
+numeral = 9
+description = "[칸 지정] 그 칸 유닛이 교전 시작 후 5초간 피해 면역·타겟 불가."
+rank = 0
+cell_modifier = SubResource("Resource_ie3kl")

@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TarotCardData" format=3]
+
+[ext_resource type="Script" path="res://core/data/stat_modifier.gd" id="1_30ghs"]
+[ext_resource type="Script" path="res://core/data/tarot_card_data.gd" id="2_tqx8e"]
+
+[sub_resource type="Resource" id="Resource_80tmm"]
+script = ExtResource("1_30ghs")
+display_name = "체리엇: 이동 +35%, 공속 +30%"
+haste_mult = 1.3
+move_mult = 1.35
+
+[resource]
+script = ExtResource("2_tqx8e")
+id = &"chariot"
+display_name = "더 체리엇"
+numeral = 7
+description = "[칸 지정] 그 칸 유닛 이동 속도 +35%, 공격 속도 +30%."
+cell_modifier = SubResource("Resource_80tmm")

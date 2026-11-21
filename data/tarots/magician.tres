@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TarotCardData" format=3]
+
+[ext_resource type="Script" path="res://core/data/stat_modifier.gd" id="1_pas3r"]
+[ext_resource type="Script" path="res://core/data/tarot_card_data.gd" id="2_6yxgt"]
+
+[sub_resource type="Resource" id="Resource_aj437"]
+script = ExtResource("1_pas3r")
+display_name = "더 매지션: 광역·마법 피해 ×1.5"
+magical_mult = 1.5
+splash_damage_mult = 1.5
+
+[resource]
+script = ExtResource("2_6yxgt")
+id = &"magician"
+display_name = "더 매지션"
+numeral = 1
+description = "[칸 지정] 그 칸 유닛의 광역·마법 피해 ×1.5."
+cell_modifier = SubResource("Resource_aj437")

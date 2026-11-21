@@ -32,6 +32,10 @@ var next_slot_power_multiplier: float = 1.0
 var pending_power_multiplier: float = 1.0
 ## 0 이하로 떨어졌던 음수량 누적 (오버플로우 배터리 연동용, FixedNum)
 var underflow_bank: int = 0
+## 보유 유저 아이템 (우선순위 정렬된 ItemInstance 목록, 해석기가 넣어 준다)
+var items: Array = []
+## 가방(예비 슬롯)에 있는 주사위 수 (벤치 응원봉)
+var bench_count: int = 0
 
 
 func _init(p_rng: RandomNumberGenerator = null, p_round: int = 1) -> void:

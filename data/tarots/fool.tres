@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="FoolTarot" format=3]
+
+[ext_resource type="Script" path="res://core/data/tarots/fool_tarot.gd" id="1_ei2bl"]
+
+[resource]
+script = ExtResource("1_ei2bl")
+id = &"fool"
+display_name = "더 풀"
+description = "[예약] 전투 내내 양 팀 모든 유닛 공격력 ×2, 받는 피해 ×1.5."
+category = 0

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="FinalBonusItem" format=3]
+
+[ext_resource type="Script" path="res://core/data/items/final_bonus_item.gd" id="1_ca4oo"]
+
+[resource]
+script = ExtResource("1_ca4oo")
+mode = 2
+id = &"overflow_battery"
+display_name = "오버플로우 배터리"
+description = "연산 중 0 아래로 떨어진 만큼을 최종값에 더한다."
+rank = 0
+priority = 60
+icon_text = "⚡"
