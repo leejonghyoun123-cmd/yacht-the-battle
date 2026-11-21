@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="SquareTemptationEnchant" format=3]
+
+[ext_resource type="Script" path="res://core/data/enchants/square_temptation_enchant.gd" id="1_oftjf"]
+
+[resource]
+script = ExtResource("1_oftjf")
+id = &"square_temptation"
+display_name = "제곱의 유혹"
+description = "현재 값이 10 이하일 때만 제곱한다. 11 이상이면 발동하지 않는다."
+rarity = 2

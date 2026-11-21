@@ -16,7 +16,7 @@ func _initialize() -> void:
 	var lose: BattleResult = BattleResult.new()
 	lose.winner = 1
 	lose.survivor_totals = [0.0, 10.0]
-	var expected: Array[int] = [0, 50, 100, 150, 200, 200]
+	var expected: Array[int] = [0, 100, 150, 200, 300, 300]
 	for i: int in range(expected.size()):
 		var before: int = player.gold
 		var s: Dictionary = BattleSettlement.settle_solo(lose, player, board, streak, 1)

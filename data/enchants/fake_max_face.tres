@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="FakeMaxFaceEnchant" format=3]
+
+[ext_resource type="Script" path="res://core/data/enchants/fake_max_face_enchant.gd" id="1_w7mvh"]
+
+[resource]
+script = ExtResource("1_w7mvh")
+id = &"fake_max_face"
+display_name = "가짜 최댓값"
+description = "굴리기 전, 가장 낮은 면 1개를 최댓값으로 바꾼다."
+rarity = 1
+phase = 0

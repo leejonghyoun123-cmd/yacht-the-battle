@@ -19,8 +19,8 @@ func _initialize() -> void:
 	shield.body_radius = 6.0
 	_save(shield)
 
-	var cannon: UnitData = _unit(&"cannon", "캐논", UnitData.Role.RANGED, Color("e0884f"), 70.0, 14.0, 2.0, 200.0, 45.0)
-	cannon.splash_radius = 30.0
+	var cannon: UnitData = _unit(&"cannon", "캐논", UnitData.Role.RANGED, Color("e0884f"), 70.0, 7.0, 2.4, 200.0, 45.0)
+	cannon.splash_radius = 16.0
 	_save(cannon)
 
 	var healer: UnitData = _unit(&"healer", "힐러", UnitData.Role.RANGED, Color("f2d86b"), 80.0, 4.0, 1.0, 120.0, 50.0)

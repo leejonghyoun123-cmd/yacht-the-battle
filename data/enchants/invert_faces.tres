@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="InvertFacesEnchant" format=3]
+
+[ext_resource type="Script" path="res://core/data/enchants/invert_faces_enchant.gd" id="1_2jq1c"]
+
+[resource]
+script = ExtResource("1_2jq1c")
+id = &"invert_faces"
+display_name = "눈금 반전"
+description = "굴리기 전, 모든 면을 (최댓값+1) - X로 뒤집는다."
+phase = 0

@@ -17,12 +17,14 @@ static func resolve(
 		rng: RandomNumberGenerator,
 		round_number: int,
 		held: Array[bool] = [],
-		previous: Array[DiceRollResult] = []) -> Array[DiceRollResult]:
+		previous: Array[DiceRollResult] = [],
+		modifiers: Dictionary = {}) -> Array[DiceRollResult]:
 	var results: Array[DiceRollResult] = []
 	# Pass 1: 일반 주사위
 	for i: int in range(dice.size()):
 		var ctx: RollContext = RollContext.new(rng, round_number)
 		ctx.active_index = i
+		_apply_modifiers(ctx, modifiers)
 		var keep: bool = i < held.size() and held[i] and i < previous.size() and previous[i] != null
 		if keep:
 			dice[i].run_pipeline(ctx, previous[i].raw_roll)
@@ -30,6 +32,19 @@ static func resolve(
 			dice[i].roll(ctx)
 		results.append(DiceRollResult.from_context(i, ctx))
 	return results
+
+
+## 보스 등 굴림 규칙 수정치 적용
+##   "disabled_slots": Array[int]  — 9R 침묵의 시계탑 (슬롯 1 정지)
+##   "tax_multipliers": bool       — 12R 탐욕의 수금원 (2번째 이후 곱연산 절반)
+static func _apply_modifiers(ctx: RollContext, modifiers: Dictionary) -> void:
+	if modifiers.has("disabled_slots"):
+		var slots: Array[int] = []
+		for s: int in modifiers["disabled_slots"]:
+			slots.append(s)
+		ctx.disabled_slot_indices = slots
+	if modifiers.get("tax_multipliers", false):
+		ctx.tax_extra_multipliers = true
 
 
 ## 결과 배열 → 확정 소환값 배열 (얏츠판 입력용)

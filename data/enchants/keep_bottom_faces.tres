@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="KeepExtremeFacesEnchant" format=3]
+
+[ext_resource type="Script" path="res://core/data/enchants/keep_extreme_faces_enchant.gd" id="1_2rhlg"]
+
+[resource]
+script = ExtResource("1_2rhlg")
+keep_top = false
+id = &"keep_bottom_faces"
+display_name = "최하위 면 남기기"
+description = "굴리기 전, 가장 작은 면 2개만 남기고 전부 삭제한다."
+rarity = 2
+phase = 0

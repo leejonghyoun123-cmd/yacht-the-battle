@@ -68,3 +68,7 @@
 - 준비시간 2분 + 1회 30초 연장. 거인(·킹)은 포커카드 에이스 전용 — 일반 주사위 배치 목록에 없음(GameSession.can_use_unit).
 - 마우스 위치는 get_global_mouse_position() 대신 입력 이벤트 좌표를 쓴다 (리게임 직후 등 갱신이 늦어 컵·칸 클릭이 어긋난 적 있음).
 - test_streak(14): 연패 보상 지급 확인.
+- 연패 보상 2:100 / 3:150 / 4:200 / 5+:300(+무료 리롤). 캐논: 공격 7, 간격 2.4초, 반경 16, 광역 가장자리 40%(BattleRules.SPLASH_EDGE_DAMAGE) — 1:1 측정상 소드·힐러에 강하고 보우·실드에 약함.
+- 보스 굴림 기믹: BossRules.roll_modifiers(9R 슬롯1 정지, 12R 곱연산 과세) → RoundFlow.roll_modifiers → DiceRollResolver. 15R 재굴림 -1. GameSession.apply_round_rules가 라운드마다 적용.
+- 인첸트 24종(기존 9 + tools/generate_enchants_v2.gd 15). 새 인첸트는 ShopCatalog.ENCHANT_PATHS에 등록해야 상점에 나온다.
+- 테스트 추가: test_boss(7), test_enchants_v2(24).

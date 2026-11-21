@@ -27,6 +27,8 @@ var rerolls_left: int = 0
 ## 아이템(나 안굴렸는데?)·보스(15R) 보정
 var reroll_bonus: int = 0
 var reroll_penalty: int = 0
+## 보스 굴림 규칙 (9R 슬롯 1 정지, 12R 곱연산 과세) — GameSession이 라운드마다 넣어 준다
+var roll_modifiers: Dictionary = {}
 var held: Array[bool] = []
 var results: Array[DiceRollResult] = []
 var recorded_category: int = -1
@@ -61,10 +63,10 @@ func roll() -> bool:
 		deck.lock()
 		phase = Phase.ROLLING
 		rerolls_left = get_reroll_limit()
-		results = DiceRollResolver.resolve(deck.active, rng, round_number)
+		results = DiceRollResolver.resolve(deck.active, rng, round_number, [] as Array[bool], [] as Array[DiceRollResult], roll_modifiers)
 	else:
 		rerolls_left -= 1
-		results = DiceRollResolver.resolve(deck.active, rng, round_number, held, results)
+		results = DiceRollResolver.resolve(deck.active, rng, round_number, held, results, roll_modifiers)
 	rolled.emit(results)
 	changed.emit()
 	return true

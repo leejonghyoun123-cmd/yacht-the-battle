@@ -47,6 +47,7 @@ func _init(seed_value: int = 0) -> void:
 	timer = RoundTimer.new()
 	timer.reset()
 	flow.yacht_recorded.connect(_on_yacht_recorded)
+	apply_round_rules()
 
 
 ## 상점 (연병장에서 이동)
@@ -305,6 +306,7 @@ func settle_battle() -> Dictionary:
 		game_over.emit(last_summary["winner"] == 0)
 		return last_summary
 	flow.advance_round()
+	apply_round_rules()
 	shop.restock(get_round())
 	shop.free_reroll = streak.has_free_reroll()
 	_set_phase(Phase.SETTLED)
@@ -322,3 +324,10 @@ func _set_phase(p: Phase) -> void:
 	phase = p
 	phase_changed.emit(p)
 	changed.emit()
+
+
+## 라운드별 보스 규칙을 굴림 흐름에 적용 (9R 슬롯 정지, 12R 곱연산 과세, 15R 재굴림 -1)
+func apply_round_rules() -> void:
+	var r: int = get_round()
+	flow.roll_modifiers = BossRules.roll_modifiers(r)
+	flow.reroll_penalty = BossRules.reroll_penalty(r)

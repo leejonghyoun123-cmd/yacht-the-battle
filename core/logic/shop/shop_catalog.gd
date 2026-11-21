@@ -13,6 +13,22 @@ const ENCHANT_PATHS: Array[String] = [
 	"res://data/enchants/sub_from_100.tres",
 	"res://data/enchants/remove_lower_half.tres",
 	"res://data/enchants/echo_slot.tres",
+	# 확장분 (02 문서)
+	"res://data/enchants/remove_upper_half.tres",
+	"res://data/enchants/keep_top_faces.tres",
+	"res://data/enchants/keep_bottom_faces.tres",
+	"res://data/enchants/square_temptation.tres",
+	"res://data/enchants/reverse_digits.tres",
+	"res://data/enchants/ceil_to_ten.tres",
+	"res://data/enchants/amplify_next.tres",
+	"res://data/enchants/threshold_switch.tres",
+	"res://data/enchants/odd_zealot.tres",
+	"res://data/enchants/even_noble.tres",
+	"res://data/enchants/lucky_seven.tres",
+	"res://data/enchants/invert_faces.tres",
+	"res://data/enchants/parity_odd_only.tres",
+	"res://data/enchants/parity_even_only.tres",
+	"res://data/enchants/fake_max_face.tres",
 ]
 const DICE_DIR: String = "res://data/dice/"
 

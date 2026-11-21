@@ -22,6 +22,8 @@ const FIGHT_TIME_LIMIT: float = 60.0
 const DEPLOY_MAX_TIME: float = 8.0
 ## 목표 재탐색 주기 (유닛마다 시차를 두어 부하 분산)
 const RETARGET_INTERVAL: float = 0.25
+## 광역 피해 가장자리 배율 (캐논 너프: 밀집 대형 전체를 같은 피해로 쓸어 버리지 않게)
+const SPLASH_EDGE_DAMAGE: float = 0.4
 ## 받는 피해 최소 배율 (피해 경감 합산 상한 75%)
 const MIN_DAMAGE_TAKEN: float = 0.25
 

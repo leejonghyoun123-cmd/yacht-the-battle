@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="OddZealotEnchant" format=3]
+
+[ext_resource type="Script" path="res://core/data/enchants/odd_zealot_enchant.gd" id="1_fircs"]
+
+[resource]
+script = ExtResource("1_fircs")
+id = &"odd_zealot"
+display_name = "홀수 광신도"
+description = "현재 값이 홀수면 ×2.5, 짝수면 +1."
+rarity = 2

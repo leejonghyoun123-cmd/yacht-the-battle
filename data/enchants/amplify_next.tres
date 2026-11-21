@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="AmplifyNextEnchant" format=3]
+
+[ext_resource type="Script" path="res://core/data/enchants/amplify_next_enchant.gd" id="1_g1eyv"]
+
+[resource]
+script = ExtResource("1_g1eyv")
+id = &"amplify_next"
+display_name = "증폭 코어"
+description = "바로 다음 슬롯의 합연산·곱연산 수치를 1.5배 강화한다."
+rarity = 1

@@ -22,7 +22,8 @@ const STACK_SELL_PER_UNIT: int = 2
 # --- 연승·연패 보상 (기획서 00 5장) ---
 ## [연속 횟수, 보상] — 횟수 이상이면 해당 보상 (위에서부터 큰 값 우선)
 const WIN_STREAK_REWARDS: Array[Vector2i] = [Vector2i(5, 350), Vector2i(3, 200), Vector2i(2, 100)]
-const LOSS_STREAK_REWARDS: Array[Vector2i] = [Vector2i(5, 200), Vector2i(4, 150), Vector2i(3, 100), Vector2i(2, 50)]
+## 연패 보상 (2026-11-22 상향: 연패마다 인첸트 하나는 더 살 수 있게)
+const LOSS_STREAK_REWARDS: Array[Vector2i] = [Vector2i(5, 300), Vector2i(4, 200), Vector2i(3, 150), Vector2i(2, 100)]
 ## 5연패 이상 시 무료 상점 리롤
 const LOSS_STREAK_FREE_REROLL: int = 5
 

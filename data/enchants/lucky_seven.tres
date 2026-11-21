@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="LuckySevenEnchant" format=3]
+
+[ext_resource type="Script" path="res://core/data/enchants/lucky_seven_enchant.gd" id="1_ypkyt"]
+
+[resource]
+script = ExtResource("1_ypkyt")
+id = &"lucky_seven"
+display_name = "럭키 세븐"
+description = "현재 값의 1의 자리가 7이면 ×4."
+rarity = 2

@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="ThresholdSwitchEnchant" format=3]
+
+[ext_resource type="Script" path="res://core/data/enchants/threshold_switch_enchant.gd" id="1_3rf7l"]
+
+[resource]
+script = ExtResource("1_3rf7l")
+id = &"threshold_switch"
+display_name = "최댓값 절단기"
+description = "현재 값이 50 이하면 +20, 50을 넘으면 ×1.5."
+rarity = 1

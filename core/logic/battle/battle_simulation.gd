@@ -249,8 +249,10 @@ func _attack(attacker: BattleUnit, target: BattleUnit) -> void:
 	var splash: float = attacker.data.splash_radius
 	events.append({ "type": "attack", "from": attacker.id, "to": target.id, "pos": target.pos, "splash": splash })
 	if splash > 0.0:
+		# 광역 피해는 중심에서 멀수록 약해진다 (중심 100% → 가장자리 SPLASH_EDGE_DAMAGE)
 		for victim: BattleUnit in _enemies_near(attacker.team, target.pos, splash):
-			_apply_damage(victim, damage)
+			var t: float = clampf(victim.pos.distance_to(target.pos) / splash, 0.0, 1.0)
+			_apply_damage(victim, damage * lerpf(1.0, BattleRules.SPLASH_EDGE_DAMAGE, t))
 	else:
 		_apply_damage(target, damage)
 

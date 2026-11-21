@@ -24,7 +24,7 @@ func setup(p_dice: DiceInstance, p_radius: float, p_tooltip: Node) -> Control:
 	radius = p_radius
 	tooltip = p_tooltip
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	custom_minimum_size = Vector2(_slot_step() * DiceInstance.MAX_SLOTS, radius * 2.0 + 4.0 + arc_depth + (16.0 if show_names else 0.0))
+	custom_minimum_size = Vector2(_slot_step() * DiceInstance.MAX_SLOTS, radius * 2.0 + 4.0 + arc_depth + (29.0 if show_names else 0.0))
 	mouse_exited.connect(func() -> void:
 		_hover = -1
 		if tooltip != null:
@@ -73,9 +73,11 @@ func _draw() -> void:
 			var w: float = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 			draw_string(font, c + Vector2(-w * 0.5, fs * 0.35), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.08, 0.08, 0.1))
 			if show_names:
+				# 이름이 길면 옆 슬롯 이름과 겹치므로 홀수 번째는 한 줄 아래로 엇갈려 쓴다
 				var name_fs: int = 11
 				var nw: float = font.get_string_size(inst.get_display_name(), HORIZONTAL_ALIGNMENT_LEFT, -1, name_fs).x
-				draw_string(font, c + Vector2(-nw * 0.5, radius + 14.0), inst.get_display_name(), HORIZONTAL_ALIGNMENT_LEFT, -1, name_fs, Color.WHITE)
+				var stagger: float = 13.0 if i % 2 == 1 else 0.0
+				draw_string(font, c + Vector2(-nw * 0.5, radius + 14.0 + stagger), inst.get_display_name(), HORIZONTAL_ALIGNMENT_LEFT, -1, name_fs, Color.WHITE)
 		if locked:
 			draw_circle(c, radius, Color(0, 0, 0, 0.35))
 		if i == selected_slot:
