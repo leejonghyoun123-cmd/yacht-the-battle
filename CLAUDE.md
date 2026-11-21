@@ -81,6 +81,7 @@
 - 주사위 성질: DiceTraitData(.tres, data/traits, tools/generate_traits.gd) + DiceInstance.trait_data. 새 성질은 ShopCatalog.TRAIT_PATHS에 등록. 가격 GameBalance.TRAIT_PRICE_BY_RANK(C150/B250/A400/S600).
 - 전투 화면: 유닛은 UnitFigure(스틱맨) — 아트 교체 시 이 파일만 바꾼다. 데미지 숫자는 동시 70개 제한 + 같은 대상 0.12초 안 합산.
 - 테스트: test_branches(7, 중첩 분기 — 예전 test_king_poker에서 킹·포커카드 검사를 뺀 것).
+- sed 범위 삭제(/시작/,/끝/d)는 끝 패턴이 안 맞으면 파일 끝까지 지운다 (barracks_ui 뒷부분이 통째로 사라진 적 있음). 범위 삭제 뒤에는 git diff --stat으로 지운 줄 수를 확인하거나 Edit 도구를 쓴다.
 - 칸 보정: StatModifier(.tres 하위 리소스 또는 코드 static 캐시) — 뼈주사위는 CellState.modifiers(칸이 비면 사라짐), 타로 유닛칸 버프는 BoardState.slot_modifiers(칸 자리 영구). 같은 리소스는 한 칸에 한 번만.
 - 성질 훅 순서: prepare_context → modify_base_faces → 추첨 → override_raw → on_rolled → 아이템 → 인첸트 → on_post_pipeline → 아이템 최종 → (기록) on_confirm → (정산 후) on_round_end. 해석기 3-Pass: 일반 → 자석 → 거울. 파괴는 GameSession.destroy_dice(인첸트 자동 회수·5주사위 보충)로만.
 - 과부하 주사위: 중첩칸에 놓으면 CellState.temp_count(이번 라운드 한정, 승리 시 판매).
