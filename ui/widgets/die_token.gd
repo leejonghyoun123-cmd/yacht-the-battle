@@ -69,6 +69,7 @@ func setup(p_dice: DiceInstance, face: String, value_text: String, value_color: 
 	if tooltip != null:
 		tooltip.call("attach", holder, func() -> String: return String(get_meta("tooltip_text", "")))
 	box.add_child(holder)
+	_holder = holder
 
 	_value = Label.new()
 	_value.text = value_text
@@ -100,3 +101,24 @@ func set_face(text: String) -> void:
 func set_value_text(text: String) -> void:
 	if _value != null:
 		_value.text = text
+
+
+var _holder: Control = null
+
+
+## 굴러가는 연출: 주사위 그림만 회전
+func set_spin(angle: float) -> void:
+	if _holder != null:
+		_holder.pivot_offset = _holder.size * 0.5
+		_holder.rotation = angle
+
+
+## 주사위 그림의 화면(전역) 사각형 (교체 스와이프 연출용)
+func get_icon_global_rect() -> Rect2:
+	return _holder.get_global_rect() if _holder != null else get_global_rect()
+
+
+## 슬롯·값 등 나머지는 그대로 두고 주사위 그림만 숨기거나 보이기
+func set_icon_visible(value: bool) -> void:
+	if _holder != null:
+		_holder.modulate.a = 1.0 if value else 0.0

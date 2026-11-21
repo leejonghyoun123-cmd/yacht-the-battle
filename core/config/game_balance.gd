@@ -39,7 +39,9 @@ const START_RESERVE_SLOTS: int = 2
 
 # --- 상점 (Step 2 이후 사용) ---
 const ENCHANT_PRICE_BY_RARITY: Array[int] = [100, 200, 400, 800]
-const SHOP_REROLL_COST: int = 50
+## 리롤 가격: 한 라운드 안에서 할수록 25 → 50 → 75원… (다음 라운드에 25원부터)
+const SHOP_REROLL_BASE_COST: int = 25
+const SHOP_REROLL_COST_STEP: int = 25
 ## 판매가 = 구매가 × 비율
 const SELL_RATIO: float = 0.5
 

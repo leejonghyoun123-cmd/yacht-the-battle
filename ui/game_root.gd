@@ -66,7 +66,8 @@ func _ready() -> void:
 	session.board.board_changed.connect(_refresh_preview)
 	session.phase_changed.connect(_on_phase_changed)
 	session.timer.expired.connect(_on_timer_expired)
-	show_screen("barracks")
+	# 라운드는 주사위 테이블에서 시작한다
+	show_screen("roll")
 
 
 func _make_screen(key: String, path: String) -> Control:
@@ -117,8 +118,7 @@ func _on_phase_changed(p: GameSession.Phase) -> void:
 			view.set("pick_enabled", false)
 			tooltip.call("hide_tip")
 		GameSession.Phase.BARRACKS:
-			if current_screen != "barracks" and current_screen != "shop":
-				show_screen("barracks")
+			pass  # 어느 화면을 보여 줄지는 호출하는 쪽이 정한다 (정산 후에는 주사위 테이블)
 
 
 ## 준비·배치 중: 연병장에 현재 병력을 정렬해 보여 준다
@@ -204,6 +204,6 @@ func _on_settle_confirmed() -> void:
 	if session.phase == GameSession.Phase.GAME_OVER:
 		get_tree().reload_current_scene()
 		return
-	current_screen = ""
 	session.return_to_barracks()
-	show_screen("barracks")
+	# 전투가 끝나면 다음 라운드 주사위 테이블로
+	show_screen("roll")

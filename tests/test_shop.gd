@@ -58,12 +58,21 @@ func _test_stock() -> void:
 	_eq(StarterDeck.D6, "res://data/dice/d6.tres", "시작 덱 6면")
 	_check(s.deck.get_enchants_count() == 0 if s.deck.has_method("get_enchants_count") else s.deck.active[0].get_enchants().is_empty(), "시작 덱: 인첸트 없음")
 	_eq(s.deck.first_reserve_index(), -1, "시작 덱: 예비 칸 비어 있음")
+	shop.restock(1)
+	s.player.gold = 5000
 	var gold: int = s.player.gold
+	_eq(shop.get_reroll_cost(), 25, "첫 리롤 25원")
 	_eq(shop.reroll(), "", "리롤")
-	_eq(gold - s.player.gold, GameBalance.SHOP_REROLL_COST, "리롤 비용 차감")
+	_eq(gold - s.player.gold, 25, "리롤 비용 25원 차감")
+	_eq(shop.get_reroll_cost(), 50, "두 번째 리롤 50원")
+	shop.reroll()
+	_eq(shop.get_reroll_cost(), 75, "세 번째 리롤 75원")
+	var before_free: int = s.player.gold
 	shop.free_reroll = true
 	shop.reroll()
-	_eq(gold - s.player.gold, GameBalance.SHOP_REROLL_COST, "무료 리롤은 비용 없음")
+	_eq(s.player.gold, before_free, "무료 리롤은 비용 없음")
+	shop.restock(2)
+	_eq(shop.get_reroll_cost(), 25, "다음 라운드에 다시 25원")
 
 
 func _test_buy() -> void:

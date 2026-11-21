@@ -43,16 +43,22 @@ func restock(p_round: int) -> void:
 	round_number = p_round
 	food = _make(ShopOffer.Kind.FOOD, GameBalance.FOOD_PRICE, "식량축적", "최대 체력 +%d (최대 %d), 늘어난 만큼 회복" % [GameBalance.FOOD_MAX_HP_BONUS, GameBalance.MAX_HP_CAP])
 	wall = _make(ShopOffer.Kind.WALL, GameBalance.WALL_PRICE, "성벽증축", "이번 라운드 피격 피해를 %d만큼 막는 임시 실드" % get_wall_shield())
+	reroll_count = 0
 	_roll_random_offers()
 	_refresh_bag_offer()
 	changed.emit()
 
 
+## 이번 라운드 유료 리롤 횟수 (할수록 비싸진다)
+var reroll_count: int = 0
+
+
 ## 리롤: 랜덤 칸(주사위·인첸트·특수)만 새로 진열
 func reroll() -> String:
 	if not free_reroll:
-		if not player.spend_gold(GameBalance.SHOP_REROLL_COST):
+		if not player.spend_gold(get_reroll_cost()):
 			return "골드가 부족합니다"
+		reroll_count += 1
 	else:
 		free_reroll = false
 	_roll_random_offers()
@@ -60,8 +66,11 @@ func reroll() -> String:
 	return ""
 
 
+## 다음 리롤 가격: 25 → 50 → 75원… (무료 리롤이 있으면 0)
 func get_reroll_cost() -> int:
-	return 0 if free_reroll else GameBalance.SHOP_REROLL_COST
+	if free_reroll:
+		return 0
+	return GameBalance.SHOP_REROLL_BASE_COST + reroll_count * GameBalance.SHOP_REROLL_COST_STEP
 
 
 func get_wall_shield() -> int:

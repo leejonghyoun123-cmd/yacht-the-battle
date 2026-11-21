@@ -10,18 +10,24 @@ signal shop_requested
 signal battle_requested
 
 const DiceBar: GDScript = preload("res://ui/widgets/dice_bar.gd")
+const ItemIcon: GDScript = preload("res://ui/widgets/item_icon.gd")
 
 var session: GameSession
 var tooltip: Node
 ## 연병장을 그리는 BattleView (칸 클릭·표시용)
 var view: Node2D
 
-var selected_summon: int = 0
-var selected_unit: StringName = &"sword"
+## 배치는 [패에서 주사위 선택 → 병과 선택 → 칸 클릭]을 한 번씩. 배치하면 선택이 풀린다 (연속 자동 배치 없음)
+var selected_summon: int = -1
+var selected_unit: StringName = &""
 
 var _left_box: VBoxContainer
 var _hint_slot: VBoxContainer
 var _dice_bar: VBoxContainer
+var _bar_panel: PanelContainer
+## 배치 단계: 아직 배치하지 않은 주사위 패 (배치하면 사라진다)
+var _hand_panel: PanelContainer
+var _hand_row: HBoxContainer
 var _message: Label
 var _roll_button: Button
 var _confirm: ConfirmationDialog
@@ -50,6 +56,16 @@ func _ready() -> void:
 	_dice_bar.set("tooltip", tooltip)
 	bar_panel.add_child(_dice_bar)
 	bottom.add_child(bar_panel)
+	_bar_panel = bar_panel
+	_hand_panel = UiKit.panel(Color(0.1, 0.11, 0.15, 0.92), UiConfig.COLOR_ACCENT)
+	var hand_box: VBoxContainer = VBoxContainer.new()
+	_hand_panel.add_child(hand_box)
+	hand_box.add_child(UiKit.label("내 패 — 배치할 주사위를 고르세요", 13, UiConfig.COLOR_ACCENT))
+	_hand_row = HBoxContainer.new()
+	_hand_row.add_theme_constant_override("separation", 10)
+	hand_box.add_child(_hand_row)
+	bottom.add_child(_hand_panel)
+	bottom.move_child(_hand_panel, 0)
 	var buttons: VBoxContainer = VBoxContainer.new()
 	buttons.alignment = BoxContainer.ALIGNMENT_END
 	bottom.add_child(buttons)
@@ -93,11 +109,66 @@ func refresh() -> void:
 	_dice_bar.call("refresh")
 	var placing: bool = session.phase == GameSession.Phase.PLACEMENT
 	_roll_button.visible = not placing
+	# 배치 단계에는 덱 바 대신 '내 패'(아직 배치 안 한 주사위)를 보여 준다
+	_bar_panel.visible = not placing
+	_hand_panel.visible = placing
 	if placing:
+		if selected_summon >= 0 and (selected_summon >= session.summons.size() or session.summons[selected_summon]["placed"]):
+			selected_summon = -1
 		_build_placement_panel()
+		_build_hand()
 	else:
+		selected_summon = -1
+		selected_unit = &""
 		_build_prep_panel()
 	_push_overlay()
+
+
+## 내 패: 배치하지 않았고 지금 선택하지 않은 주사위들 (선택한 주사위는 왼쪽에 크게 표시)
+func _build_hand() -> void:
+	UiKit.clear(_hand_row)
+	var shown: int = 0
+	for i: int in range(session.summons.size()):
+		var s: Dictionary = session.summons[i]
+		if s["placed"] or i == selected_summon:
+			continue
+		shown += 1
+		var box: VBoxContainer = VBoxContainer.new()
+		var holder: PanelContainer = UiKit.panel(Color(0, 0, 0, 0))
+		holder.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		var icon: Control = ItemIcon.new()
+		icon.custom_minimum_size = Vector2(58, 58)
+		icon.call("setup", "dice", NumberFormatter.format_num(s["value"]), Color("f4f1e8"))
+		holder.add_child(icon)
+		var index: int = i
+		holder.gui_input.connect(func(e: InputEvent) -> void:
+			if e is InputEventMouseButton and (e as InputEventMouseButton).pressed and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+				_select_summon(index))
+		if tooltip != null:
+			tooltip.call("attach", holder, func() -> String: return _summon_tooltip(index))
+		box.add_child(holder)
+		var cap: Label = UiKit.label("%s명" % NumberFormatter.format_num(s["value"]), 12, Color.WHITE)
+		cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(cap)
+		_hand_row.add_child(box)
+	if shown == 0:
+		_hand_row.add_child(UiKit.label("남은 주사위 없음" if selected_summon < 0 else "(선택한 주사위만 남음)", 13, UiConfig.COLOR_DIM))
+
+
+func _select_summon(index: int) -> void:
+	selected_summon = index
+	selected_unit = &""
+	_message.text = ""
+	refresh.call_deferred()
+
+
+func _summon_tooltip(index: int) -> String:
+	var s: Dictionary = session.summons[index]
+	var dice: DiceInstance = session.deck.active[s["dice_index"]]
+	var text: String = "주사위%d · %s\n소환 %s명" % [index + 1, dice.data.display_name, NumberFormatter.format_num(s["value"])]
+	if s["reason"] != "":
+		text += "\n(%s명 → %s)" % [NumberFormatter.format_num(s["base"]), s["reason"]]
+	return text + "\n클릭: 선택"
 
 
 # --- 왼쪽 패널 ---------------------------------------------------------------
@@ -117,23 +188,40 @@ func _build_prep_panel() -> void:
 
 func _build_placement_panel() -> void:
 	UiKit.clear(_left_box)
-	if selected_summon < 0 or selected_summon >= session.summons.size() or session.summons[selected_summon]["placed"]:
-		selected_summon = session.next_unplaced_index()
-	_left_box.add_child(UiKit.label("배치: 주사위 → 병과 → 칸 클릭", 15, UiConfig.COLOR_ACCENT))
-	for i: int in range(session.summons.size()):
-		var s: Dictionary = session.summons[i]
-		var text: String = "주사위%d: %s명" % [i + 1, NumberFormatter.format_num(s["value"])]
-		if s["reason"] != "":
-			text += " (%s명, %s)" % [NumberFormatter.format_num(s["base"]), s["reason"]]
-		if s["placed"]:
-			text += "  ✔ %s" % UnitCatalog.get_unit(s["unit_id"]).display_name
-		var b: Button = UiKit.button(("▶ " if i == selected_summon else "   ") + text, 13)
-		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		b.disabled = s["placed"]
-		b.pressed.connect(func() -> void:
-			selected_summon = i
-			refresh.call_deferred())
-		_left_box.add_child(b)
+	_left_box.add_child(UiKit.label("배치: 패에서 주사위 → 병과 → 칸 클릭", 15, UiConfig.COLOR_ACCENT))
+	if selected_summon < 0:
+		var left_count: int = 0
+		for s: Dictionary in session.summons:
+			if not s["placed"]:
+				left_count += 1
+		_left_box.add_child(UiKit.label("아래 '내 패'에서 배치할 주사위를 고르세요.\n(남은 주사위 %d개)" % left_count if left_count > 0 else "모든 주사위를 배치했습니다.\n[전투 시작]을 누르세요.", 14, Color.WHITE))
+		_left_box.add_child(_placement_buttons())
+		return
+
+	# 선택한 주사위를 크게 보여 준다
+	var s: Dictionary = session.summons[selected_summon]
+	var dice: DiceInstance = session.deck.active[s["dice_index"]]
+	var big_row: HBoxContainer = HBoxContainer.new()
+	big_row.add_theme_constant_override("separation", 12)
+	var big: Control = ItemIcon.new()
+	big.custom_minimum_size = Vector2(96, 96)
+	big.call("setup", "dice", NumberFormatter.format_num(s["value"]), Color("fff6d8"))
+	big.pivot_offset = Vector2(48, 48)
+	big_row.add_child(big)
+	var info: VBoxContainer = VBoxContainer.new()
+	info.add_child(UiKit.label("선택한 주사위", 12, UiConfig.COLOR_DIM))
+	info.add_child(UiKit.label("%s명 소환" % NumberFormatter.format_num(s["value"]), 22, Color("ffe08a")))
+	info.add_child(UiKit.label(dice.data.display_name, 12, UiConfig.COLOR_DIM))
+	if s["reason"] != "":
+		var reason: Label = UiKit.label("%s명 → %s" % [NumberFormatter.format_num(s["base"]), s["reason"]], 11, Color("ff9a9a"))
+		info.add_child(reason)
+	big_row.add_child(info)
+	_left_box.add_child(big_row)
+	# 패에서 왼쪽으로 옮겨 온 느낌: 살짝 커지며 나타남
+	big.scale = Vector2(0.6, 0.6)
+	big.create_tween().tween_property(big, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+	_left_box.add_child(UiKit.label("이 주사위로 배치할 병과" if selected_unit == &"" else "병과 선택됨 → 유닛배치 칸을 클릭하세요", 13, UiConfig.COLOR_ACCENT))
 	var units: HBoxContainer = HBoxContainer.new()
 	for id: StringName in UnitCatalog.ALL_IDS:
 		var data: UnitData = UnitCatalog.get_unit(id)
@@ -148,18 +236,29 @@ func _build_placement_panel() -> void:
 			tooltip.call("attach", ub, func() -> String: return _unit_tooltip(data))
 		units.add_child(ub)
 	_left_box.add_child(units)
+	var cancel: Button = UiKit.button("선택 취소 (패로 되돌리기)", 12)
+	cancel.pressed.connect(func() -> void:
+		selected_summon = -1
+		selected_unit = &""
+		refresh.call_deferred())
+	_left_box.add_child(cancel)
+	_left_box.add_child(_placement_buttons())
+
+
+func _placement_buttons() -> Control:
 	var row: HBoxContainer = HBoxContainer.new()
 	var reset: Button = UiKit.button("배치 초기화", 14)
 	reset.pressed.connect(func() -> void:
 		session.reset_placement()
-		selected_summon = 0
+		selected_summon = -1
+		selected_unit = &""
 		refresh.call_deferred())
 	row.add_child(reset)
 	var start: Button = UiKit.button("전투 시작 ▶", 18)
 	start.disabled = not session.all_placed()
 	start.pressed.connect(func() -> void: battle_requested.emit())
 	row.add_child(start)
-	_left_box.add_child(row)
+	return row
 
 
 # --- 연병장 칸 (BattleView) ---------------------------------------------------
@@ -170,7 +269,8 @@ func _push_overlay() -> void:
 		return
 	var labels: Array[String] = []
 	var marks: Array[int] = []
-	var placing: bool = session.phase == GameSession.Phase.PLACEMENT and selected_summon >= 0
+	# 주사위와 병과를 둘 다 골라야 칸을 강조한다
+	var placing: bool = session.phase == GameSession.Phase.PLACEMENT and selected_summon >= 0 and selected_unit != &""
 	for cell: CellState in session.board.cells:
 		labels.append(_cell_label(cell))
 		var mark: int = 0
@@ -205,7 +305,7 @@ func _on_cell_hovered(cell_index: int) -> void:
 	var kind: String = "중첩칸 (전투 후에도 유지)" if cell.is_stack else "소비칸 (승리 시 생존자 판매)"
 	var body: String = "비어 있음" if cell.is_empty() else UiKit.cell_text(cell).replace("\n", " ")
 	var extra: String = ""
-	if session.phase == GameSession.Phase.PLACEMENT:
+	if session.phase == GameSession.Phase.PLACEMENT and selected_unit != &"":
 		var info: Dictionary = session.get_replace_info(cell_index, selected_unit)
 		if info["needed"]:
 			extra = "\n⚠ 배치하면 기존 유닛이 자동 판매됩니다"
@@ -226,10 +326,16 @@ func _on_cell_clicked(cell_index: int) -> void:
 
 func _try_place(cell_index: int) -> void:
 	if selected_summon < 0:
-		_message.text = "모든 주사위를 배치했습니다. [전투 시작]을 누르세요."
+		_message.text = "먼저 아래 '내 패'에서 주사위를 고르세요." if session.next_unplaced_index() >= 0 else "모든 주사위를 배치했습니다. [전투 시작]을 누르세요."
+		return
+	if selected_unit == &"":
+		_message.text = "이 주사위로 배치할 병과를 먼저 고르세요."
 		return
 	if session.can_place(selected_summon, selected_unit, cell_index):
 		session.place(selected_summon, selected_unit, cell_index)
+		# 한 번 배치하면 선택이 풀린다 (다음 주사위를 다시 골라야 함)
+		selected_summon = -1
+		selected_unit = &""
 		_message.text = ""
 		refresh.call_deferred()
 		return
@@ -245,7 +351,9 @@ func _try_place(cell_index: int) -> void:
 	var summon: int = selected_summon
 	var unit: StringName = selected_unit
 	_ask("이곳에 배치할시 해당칸의 기존유닛이 자동으로 판매됩니다.\n괜찮으십니까?" + detail, func() -> void:
-		session.replace_and_place(summon, unit, cell_index)
+		if session.replace_and_place(summon, unit, cell_index):
+			selected_summon = -1
+			selected_unit = &""
 		refresh.call_deferred())
 
 

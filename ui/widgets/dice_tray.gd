@@ -60,15 +60,10 @@ func _draw() -> void:
 	for k: int in range(int(f.size.y / 14.0)):
 		var y: float = f.position.y + 7.0 + float(k) * 14.0
 		draw_line(Vector2(f.position.x + 8, y), Vector2(f.end.x - 8, y), COLOR_FELT_DARK, 1.0)
-	# 컵
+	# 주사위통 받침 자리 (주사위통 자체는 roll_ui의 DiceCup 위젯이 그린다 — 마우스로 들고 흔든다)
 	var c: Vector2 = cup_center()
-	draw_circle(c + Vector2(4, 6), CUP_RADIUS, Color(0, 0, 0, 0.3))
-	draw_circle(c, CUP_RADIUS, COLOR_CUP)
-	draw_circle(c, CUP_RADIUS - 10.0, COLOR_CUP_IN)
-	draw_arc(c, CUP_RADIUS - 2.0, 0.0, TAU, 40, Color(1, 1, 1, 0.15), 2.0)
-	var t: String = "컵"
-	var tw: float = font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
-	draw_string(font, c + Vector2(-tw * 0.5, 5), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 1, 1, 0.35))
+	draw_circle(c, CUP_RADIUS + 6.0, Color(0, 0, 0, 0.18))
+	draw_arc(c, CUP_RADIUS + 6.0, 0.0, TAU, 40, Color(1, 1, 1, 0.12), 2.0)
 
 
 func _box(r: Rect2, color: Color, radius: int) -> void:

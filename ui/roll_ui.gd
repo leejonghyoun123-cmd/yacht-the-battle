@@ -1,52 +1,64 @@
 extends Control
 ## 주사위 테이블 화면 (예시 이미지의 배치 구조 참고, 외형은 자체 제작)
 ##   왼쪽: 종이 기록지 (굴린 뒤 노란 칸을 눌러 기록·확정)
-##   가운데 위: 주사위 쟁반 — 출전(굴리는) 주사위. 굴리면 컵에서 펠트로 쏟아지고, 누르면 고정되어 위 선반으로 이동
+##   가운데 위: 주사위 쟁반 — 출전(굴리는) 주사위. 누르면 고정되어 위 선반으로 (고정한 순서대로 왼쪽부터)
+##   주사위통: 누른 채 흔들고(커서를 따라다님) 놓으면 주사위가 펠트로 쏟아져 튕기며 구른 뒤 결과가 나온다 (굴리기 버튼 없음)
 ##   가운데 아래: 대기 주사위(가방) + [전체 교체]
-##   주사위 위 [⇅ 교체]: 가방 주사위 중 하나를 골라 교체 / 주사위 아래 곡선 인첸트 슬롯
-##   오른쪽: 보스 예고, 남은 재굴림, [굴리기], 계산 과정
-## 굴림 연출은 화면 전용 RNG를 쓰므로 게임 결과(결정론)에 영향을 주지 않는다.
+##   주사위 위 [⇅ 교체] → 아래 대기 주사위를 클릭하면 두 주사위가 서로 자리를 맞바꾸며 교체
+##   오른쪽: 보스 예고, 남은 굴리기 횟수, 계산 과정
+## 연출은 화면 전용 RNG를 쓰므로 게임 결과(결정론)에 영향을 주지 않는다.
 
 signal placement_requested
 
 const DiceTray: GDScript = preload("res://ui/widgets/dice_tray.gd")
 const DieToken: GDScript = preload("res://ui/widgets/die_token.gd")
 const ScoreSheet: GDScript = preload("res://ui/widgets/score_sheet.gd")
+const DiceCup: GDScript = preload("res://ui/widgets/dice_cup.gd")
+const ItemIcon: GDScript = preload("res://ui/widgets/item_icon.gd")
 
 const COLOR_WOOD: Color = Color("6e4b30")
 const COLOR_WOOD_GRAIN: Color = Color("5e3f27")
-const ROLL_ANIM_TIME: float = 0.55
+## 쏟아진 뒤 튕기며 구르는 시간
+const POUR_TIME: float = 0.5
 const FLICKER_INTERVAL: float = 0.05
+const SWIPE_TIME: float = 0.4
 
 var session: GameSession
 var tooltip: Node
 
 var _sheet: PanelContainer
 var _tray: Control
+var _cup: Control
 var _bag_row: HBoxContainer
 var _boss_label: Label
 var _rolls_label: Label
 var _status_label: Label
 var _calc_label: RichTextLabel
-var _roll_button: Button
 var _place_button: Button
-var _popup: PanelContainer
-var _popup_box: VBoxContainer
+var _side_panel: PanelContainer
+var _side_label: Label
 
 var _tokens: Array[Control] = []
+var _bag_tokens: Dictionary = {}
 ## 굴린 주사위가 펠트에 놓인 위치 (화면 연출용)
 var _felt_pos: Array[Vector2] = []
 var _last_pos: Array[Vector2] = []
 var _vis_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _anim_indices: Array[int] = []
+var _pour_from: Vector2 = Vector2(-1, -1)
 var _flicker_time: float = 0.0
 var _flicker_tick: float = 0.0
 var _focus_index: int = 0
+## 고정한 순서 (선반 왼쪽부터)
+var _hold_order: Array[int] = []
 
 var _sel_dice: DiceInstance = null
 var _sel_slot: int = -1
 var _swap_mode: bool = false
 var _swap_picks: Array[int] = []
+## [⇅ 교체]를 누른 출전 주사위 (-1 = 없음) → 아래 대기 주사위 클릭 대기
+var _pick_swap_index: int = -1
+var _swiping: bool = false
 
 
 func _ready() -> void:
@@ -106,14 +118,11 @@ func _ready() -> void:
 	_boss_label.custom_minimum_size = Vector2(200, 0)
 	boss_panel.add_child(_boss_label)
 	right.add_child(boss_panel)
-	_rolls_label = UiKit.label("", 20, Color.WHITE)
+	var rolls_panel: PanelContainer = UiKit.panel(Color(0.08, 0.09, 0.12, 0.9), UiConfig.COLOR_ACCENT)
+	_rolls_label = UiKit.label("", 22, Color.WHITE)
 	_rolls_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	right.add_child(_rolls_label)
-	_roll_button = UiKit.button("굴리기", 22)
-	_roll_button.custom_minimum_size = Vector2(0, 60)
-	_roll_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	_roll_button.pressed.connect(func() -> void: session.flow.roll())
-	right.add_child(_roll_button)
+	rolls_panel.add_child(_rolls_label)
+	right.add_child(rolls_panel)
 	_place_button = UiKit.button("유닛배치로 가서 배치하기 ▶", 15)
 	_place_button.custom_minimum_size = Vector2(0, 44)
 	_place_button.pressed.connect(func() -> void: placement_requested.emit())
@@ -134,14 +143,33 @@ func _ready() -> void:
 	calc_panel.add_child(_calc_label)
 	right.add_child(calc_panel)
 
-	_build_popup()
+	# [⇅ 교체] 안내 (누른 주사위 옆에 뜬다)
+	_side_panel = UiKit.panel(Color(0.08, 0.09, 0.12, 0.95), UiConfig.COLOR_SELECTED)
+	_side_panel.visible = false
+	var side_box: VBoxContainer = VBoxContainer.new()
+	_side_panel.add_child(side_box)
+	_side_label = UiKit.label("", 13, Color.WHITE)
+	side_box.add_child(_side_label)
+	var cancel: Button = UiKit.button("취소", 13)
+	cancel.pressed.connect(func() -> void:
+		_pick_swap_index = -1
+		refresh.call_deferred())
+	side_box.add_child(cancel)
+	add_child(_side_panel)
+
+	# 주사위통 (맨 위에 그려지도록 마지막에 추가)
+	_cup = DiceCup.new()
+	_cup.connect("grabbed", _on_cup_grabbed)
+	_cup.connect("released", _on_cup_released)
+	add_child(_cup)
+
 	session.flow.changed.connect(_queue_refresh)
 	session.flow.rolled.connect(_on_rolled)
 	session.deck.deck_changed.connect(_queue_refresh)
 
 
 func _queue_refresh() -> void:
-	if visible:
+	if visible and not _swiping:
 		refresh.call_deferred()
 
 
@@ -156,7 +184,7 @@ func refresh() -> void:
 	var deck: DeckManager = session.deck
 	if flow.phase != RoundFlow.Phase.PREP:
 		_swap_mode = false
-		_popup.visible = false
+		_pick_swap_index = -1
 	if flow.results.is_empty():
 		_felt_pos.clear()
 	_sync_hold_order()
@@ -166,7 +194,6 @@ func refresh() -> void:
 	_boss_label.text = "보스 정보 없음" if info.is_empty() else "⚠ %dR 보스 [%s] (%s)\n%s" % [
 		info["round"], info["name"], "이번 라운드!" if info["rounds_left"] == 0 else "%d라운드 후" % info["rounds_left"], info["gimmick"]]
 
-	# 쟁반 위 출전 주사위
 	for t: Control in _tokens:
 		_tray.remove_child(t)
 		t.queue_free()
@@ -179,24 +206,23 @@ func refresh() -> void:
 	_rebuild_bag_row()
 	_update_calc()
 
+	# 남은 굴리기 횟수 (굴리기 버튼 없음 — 주사위통을 흔들어 굴린다)
 	match flow.phase:
 		RoundFlow.Phase.PREP:
-			_rolls_label.text = "굴리기 전"
-			_roll_button.text = "굴리기"
-			_roll_button.disabled = _swap_mode
+			_rolls_label.text = "남은 굴리기 %d회" % (flow.get_reroll_limit() + 1)
 			_status_label.text = ("바꿀 출전 주사위를 %d개 고르세요 (%d/%d)" % [_swap_need(), _swap_picks.size(), _swap_need()]) if _swap_mode \
-				else "[⇅ 교체]로 가방 주사위와 바꾸거나 인첸트를 옮긴 뒤 [굴리기]. 굴린 주사위는 이번 라운드 동안 인첸트가 고정됩니다."
+				else "주사위통을 누른 채 흔들다가 놓으면 굴립니다.\n굴리기 전: [⇅ 교체]·인첸트 이동 가능 (굴린 주사위는 이번 라운드 동안 인첸트 고정)"
 		RoundFlow.Phase.ROLLING:
-			_rolls_label.text = "재굴림 %d회 남음" % flow.rerolls_left
-			_roll_button.text = "다시 굴리기"
-			_roll_button.disabled = not flow.can_roll()
-			_status_label.text = "남길 주사위를 눌러 고정(위 선반)하고 다시 굴리거나, 기록지의 노란 칸을 눌러 기록하세요."
+			_rolls_label.text = "남은 굴리기 %d회" % flow.rerolls_left
+			_status_label.text = "남길 주사위를 눌러 고정(위 선반)하고 다시 흔들어 굴리거나, 기록지의 노란 칸을 눌러 기록하세요."
 		RoundFlow.Phase.RECORDED:
 			_rolls_label.text = "기록 완료"
-			_roll_button.text = "확정됨"
-			_roll_button.disabled = true
 			_status_label.text = "%s 기록 +%s원" % [YachtBoard.CATEGORY_NAMES[flow.recorded_category], NumberFormatter.format_num(flow.recorded_gold)]
 	_place_button.visible = flow.phase == RoundFlow.Phase.RECORDED
+
+	var can: bool = flow.can_roll() and not _swap_mode and _pick_swap_index < 0
+	_cup.set("enabled", can)
+	_update_side_panel.call_deferred()
 
 
 func _make_active_token(index: int) -> Control:
@@ -206,7 +232,7 @@ func _make_active_token(index: int) -> Control:
 	var result: DiceRollResult = flow.results[index] if index < flow.results.size() else null
 	var held: bool = flow.held[index]
 	var border: Color = Color.TRANSPARENT
-	if _swap_mode and _swap_picks.has(index):
+	if _pick_swap_index == index or (_swap_mode and _swap_picks.has(index)):
 		border = UiConfig.COLOR_SELECTED
 	elif held:
 		border = UiConfig.COLOR_TARGET
@@ -218,12 +244,27 @@ func _make_active_token(index: int) -> Control:
 		not deck.can_edit_dice(dice), border, _sel_slot if dice == _sel_dice else -1, false, tooltip)
 	token.set_meta("tooltip_text", _dice_tooltip(dice, result))
 	token.connect("pressed", func() -> void: _on_token_pressed(index))
-	token.connect("swap_pressed", func() -> void: _open_swap_popup(index))
+	token.connect("swap_pressed", func() -> void:
+		_pick_swap_index = -1 if _pick_swap_index == index else index
+		refresh.call_deferred())
 	token.connect("slot_pressed", func(slot: int) -> void: _on_slot_pressed(dice, slot))
 	return token
 
 
-## 토큰 위치: 굴리기 전 = 펠트에 한 줄 / 굴린 뒤 = 펠트에 흩어짐 / 고정 = 위 선반
+## 고정 상태와 고정 순서를 맞춘다 (해제된 주사위는 빼고 새로 고정된 주사위는 뒤에)
+func _sync_hold_order() -> void:
+	var held: Array[bool] = session.flow.held
+	var kept: Array[int] = []
+	for i: int in _hold_order:
+		if i < held.size() and held[i] and not kept.has(i):
+			kept.append(i)
+	for i: int in range(held.size()):
+		if held[i] and not kept.has(i):
+			kept.append(i)
+	_hold_order = kept
+
+
+## 토큰 위치: 굴리기 전 = 펠트에 한 줄 / 굴린 뒤 = 펠트에 흩어짐 / 고정 = 위 선반(고정한 순서)
 func _layout_tokens(animate: bool) -> void:
 	if _tokens.is_empty() or _tray.size.x <= 0.0:
 		return
@@ -237,7 +278,6 @@ func _layout_tokens(animate: bool) -> void:
 		var token: Control = _tokens[i]
 		var target: Vector2
 		if flow.has_rolled() and flow.held[i]:
-			# 고정한 순서대로 선반 왼쪽부터 채운다
 			var slot: Rect2 = _tray.call("shelf_slot_rect", maxi(0, _hold_order.find(i)), count)
 			target = slot.get_center() - token.size * 0.5
 		elif flow.has_rolled() and i < _felt_pos.size() and _felt_pos[i].x >= 0.0:
@@ -246,20 +286,37 @@ func _layout_tokens(animate: bool) -> void:
 			var step: float = land.size.x / float(count)
 			target = Vector2(land.position.x + step * (float(i) + 0.5) - token.size.x * 0.5, land.get_center().y - token.size.y * 0.5)
 		if animate and _anim_indices.has(i):
-			# 굴림: 컵에서 튀어나와 펠트에 떨어진다
-			token.position = (_tray.call("cup_center") as Vector2) - token.size * 0.5
-			var tw: Tween = token.create_tween()
-			tw.tween_property(token, "position", target, ROLL_ANIM_TIME + 0.05 * float(i)).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			_animate_pour(token, i, target)
 		elif animate and _last_pos[i].x >= 0.0 and _last_pos[i] != target:
 			token.position = _last_pos[i]
-			var tw2: Tween = token.create_tween()
-			tw2.tween_property(token, "position", target, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+			var tw: Tween = token.create_tween()
+			tw.tween_property(token, "position", target, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		else:
 			token.position = target
 		_last_pos[i] = target
 	if not _anim_indices.is_empty():
-		_flicker_time = ROLL_ANIM_TIME
+		_flicker_time = POUR_TIME
 		_flicker_tick = 0.0
+	_place_cup_home()
+
+
+## 쏟아짐: 놓은 컵 위치에서 튀어나와 → 크게 한 번 튕기고 → 작게 튕긴 뒤 멈춤, 그동안 굴러가며 회전
+func _animate_pour(token: Control, index: int, target: Vector2) -> void:
+	var start: Vector2 = _pour_from - _tray.global_position - token.size * 0.5 if _pour_from.x >= 0.0 \
+		else (_tray.call("cup_center") as Vector2) - token.size * 0.5
+	token.position = start
+	token.call("set_value_text", "")
+	var bounce1: Vector2 = target + Vector2(_vis_rng.randf_range(-70, 70), _vis_rng.randf_range(-45, 45))
+	var bounce2: Vector2 = target + Vector2(_vis_rng.randf_range(-14, 14), _vis_rng.randf_range(-10, 10))
+	var delay: float = 0.03 * float(index)
+	var tw: Tween = token.create_tween()
+	tw.tween_interval(delay)
+	tw.tween_property(token, "position", bounce1, 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(token, "position", bounce2, 0.16).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(token, "position", target, 0.12).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+	var spin: Tween = token.create_tween()
+	spin.tween_interval(delay)
+	spin.tween_method(func(a: float) -> void: token.call("set_spin", a), _vis_rng.randf_range(-9.0, 9.0), 0.0, POUR_TIME).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
 func _process(delta: float) -> void:
@@ -268,11 +325,14 @@ func _process(delta: float) -> void:
 	_flicker_time -= delta
 	_flicker_tick -= delta
 	if _flicker_time <= 0.0:
-		# 연출 끝: 실제 결과 면 표시
+		# 연출 끝: 실제 결과 표시
 		for i: int in _anim_indices:
 			if i < _tokens.size() and i < session.flow.results.size():
-				_tokens[i].call("set_face", str(session.flow.results[i].raw_roll))
+				var r: DiceRollResult = session.flow.results[i]
+				_tokens[i].call("set_face", str(r.raw_roll))
+				_tokens[i].call("set_value_text", "→ %s명" % NumberFormatter.format_num(r.summon_value))
 		_anim_indices.clear()
+		_pour_from = Vector2(-1, -1)
 		return
 	if _flicker_tick <= 0.0:
 		_flicker_tick = FLICKER_INTERVAL
@@ -282,7 +342,44 @@ func _process(delta: float) -> void:
 				_tokens[i].call("set_face", str(faces[_vis_rng.randi_range(0, faces.size() - 1)]))
 
 
-## 굴림 직후: 고정 안 한 주사위들의 펠트 위치를 새로 정하고 연출 시작
+# =========================================================================
+# 주사위통
+# =========================================================================
+
+func _place_cup_home() -> void:
+	if _cup.call("is_dragging"):
+		return
+	var home: Vector2 = _tray.global_position - global_position + (_tray.call("cup_center") as Vector2) - _cup.size * 0.5
+	_cup.set("home_position", home)
+	if _cup.position == Vector2.ZERO or _anim_indices.is_empty():
+		_cup.call("go_home", false)
+
+
+## 잡으면: 굴릴 주사위(고정 안 한 것)들이 컵 안으로 들어간다
+func _on_cup_grabbed() -> void:
+	var flow: RoundFlow = session.flow
+	var texts: Array[String] = []
+	for i: int in range(_tokens.size()):
+		if flow.has_rolled() and flow.held[i]:
+			continue
+		_tokens[i].visible = false
+		texts.append(String(session.deck.active[i].data.id))
+	_cup.call("set_inner", texts)
+
+
+## 놓으면: 실제 굴림 → 그 자리에서 쏟아지는 연출 → 컵은 제자리로
+func _on_cup_released(global_center: Vector2) -> void:
+	_cup.call("set_inner", [] as Array[String])
+	if session.flow.can_roll():
+		_pour_from = global_center
+		session.flow.roll()
+	else:
+		for t: Control in _tokens:
+			t.visible = true
+	_cup.call("go_home", true)
+
+
+## 굴림 직후: 고정 안 한 주사위들의 펠트 위치를 새로 정하고 연출 대상으로 지정
 func _on_rolled(_results: Array[DiceRollResult]) -> void:
 	var flow: RoundFlow = session.flow
 	var count: int = session.deck.active.size()
@@ -312,24 +409,6 @@ func _on_rolled(_results: Array[DiceRollResult]) -> void:
 # 조작
 # =========================================================================
 
-## 고정한 순서 (선반 왼쪽부터 배치). 화면 표시용이라 RoundFlow가 아닌 여기서 관리한다.
-var _hold_order: Array[int] = []
-
-
-## 실제 고정 상태(RoundFlow.held)와 맞춘다: 해제된 주사위는 빼고(뒤 주사위들이 왼쪽으로 당겨짐),
-## 새로 고정된 주사위는 맨 뒤에 붙인다.
-func _sync_hold_order() -> void:
-	var held: Array[bool] = session.flow.held
-	var kept: Array[int] = []
-	for i: int in _hold_order:
-		if i < held.size() and held[i] and not kept.has(i):
-			kept.append(i)
-	for i: int in range(held.size()):
-		if held[i] and not kept.has(i):
-			kept.append(i)
-	_hold_order = kept
-
-
 func _on_token_pressed(index: int) -> void:
 	var flow: RoundFlow = session.flow
 	_focus_index = index
@@ -339,7 +418,7 @@ func _on_token_pressed(index: int) -> void:
 		elif _swap_picks.size() < _swap_need():
 			_swap_picks.append(index)
 		refresh.call_deferred()
-	elif flow.phase == RoundFlow.Phase.ROLLING:
+	elif flow.phase == RoundFlow.Phase.ROLLING and _anim_indices.is_empty():
 		flow.toggle_hold(index)
 	else:
 		_update_calc()
@@ -362,38 +441,64 @@ func _on_slot_pressed(dice: DiceInstance, slot: int) -> void:
 	refresh.call_deferred()
 
 
-# --- [⇅ 교체] 팝업: 가방 주사위 중 하나 선택 ------------------------------------
+# --- [⇅ 교체]: 아래 대기 주사위를 클릭 → 서로 자리를 맞바꾸는 스와이프 -----------------
 
-func _build_popup() -> void:
-	_popup = UiKit.panel(Color(0.08, 0.09, 0.12, 0.97), UiConfig.COLOR_ACCENT)
-	_popup.set_anchors_preset(Control.PRESET_CENTER)
-	_popup.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_popup.grow_vertical = Control.GROW_DIRECTION_BOTH
-	_popup.visible = false
-	add_child(_popup)
-	_popup_box = VBoxContainer.new()
-	_popup_box.add_theme_constant_override("separation", 6)
-	_popup.add_child(_popup_box)
+func _update_side_panel() -> void:
+	if _pick_swap_index < 0 or _pick_swap_index >= _tokens.size():
+		_side_panel.visible = false
+		return
+	var token: Control = _tokens[_pick_swap_index]
+	_side_label.text = "출전 %d (%s)과 바꿀\n대기 주사위를 아래에서 클릭하세요" % [
+		_pick_swap_index + 1, session.deck.active[_pick_swap_index].data.display_name]
+	_side_panel.reset_size()
+	var rect: Rect2 = token.get_global_rect()
+	var pos: Vector2 = rect.position - global_position + Vector2(rect.size.x + 6.0, 10.0)
+	if pos.x + _side_panel.size.x > size.x - 10.0:
+		pos.x = rect.position.x - global_position.x - _side_panel.size.x - 6.0
+	_side_panel.position = pos
+	_side_panel.visible = true
 
 
-func _open_swap_popup(active_index: int) -> void:
+func _start_swipe(active_index: int, reserve_index: int) -> void:
+	if _swiping or not _bag_tokens.has(reserve_index) or active_index >= _tokens.size():
+		return
+	_swiping = true
+	_side_panel.visible = false
+	var a_token: Control = _tokens[active_index]
+	var b_token: Control = _bag_tokens[reserve_index]
+	var a_rect: Rect2 = a_token.call("get_icon_global_rect")
+	var b_rect: Rect2 = b_token.call("get_icon_global_rect")
 	var deck: DeckManager = session.deck
-	UiKit.clear(_popup_box)
-	_popup_box.add_child(UiKit.label("출전 %d (%s)와 바꿀 가방 주사위를 고르세요" % [active_index + 1, deck.active[active_index].data.display_name], 15, UiConfig.COLOR_ACCENT))
-	for j: int in deck.reserve_filled_indices():
-		var d: DiceInstance = deck.reserve[j]
-		var b: Button = UiKit.button("%s   ·   인첸트: %s" % [d.data.display_name, _enchant_summary(d)], 14)
-		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		b.pressed.connect(func() -> void:
-			deck.swap_slots(active_index, j)
-			_popup.visible = false)
-		_popup_box.add_child(b)
-	var cancel: Button = UiKit.button("취소", 14)
-	cancel.pressed.connect(func() -> void: _popup.visible = false)
-	_popup_box.add_child(cancel)
-	_popup.reset_size()
-	_popup.visible = true
+	var ghost_a: Control = _ghost(deck.active[active_index], a_rect)
+	var ghost_b: Control = _ghost(deck.reserve[reserve_index], b_rect)
+	a_token.call("set_icon_visible", false)
+	b_token.call("set_icon_visible", false)
+	# 두 주사위가 서로의 자리로 크게 엇갈려 이동 (위로 올라가는 쪽은 살짝 커졌다 작아짐)
+	var tw: Tween = create_tween().set_parallel(true)
+	tw.tween_property(ghost_a, "position", b_rect.position - global_position, SWIPE_TIME).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(ghost_a, "size", b_rect.size, SWIPE_TIME)
+	tw.tween_property(ghost_b, "position", a_rect.position - global_position, SWIPE_TIME).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(ghost_b, "size", a_rect.size, SWIPE_TIME)
+	tw.tween_property(ghost_b, "scale", Vector2(1.25, 1.25), SWIPE_TIME * 0.5)
+	tw.chain().tween_property(ghost_b, "scale", Vector2.ONE, SWIPE_TIME * 0.3)
+	tw.chain().tween_callback(func() -> void:
+		ghost_a.queue_free()
+		ghost_b.queue_free()
+		_swiping = false
+		_pick_swap_index = -1
+		deck.swap_slots(active_index, reserve_index)
+		refresh())
+
+
+func _ghost(dice: DiceInstance, rect: Rect2) -> Control:
+	var g: Control = ItemIcon.new()
+	g.call("setup", "dice", String(dice.data.id), Color("fff6d8"))
+	g.position = rect.position - global_position
+	g.size = rect.size
+	g.pivot_offset = rect.size * 0.5
+	g.z_index = 10
+	add_child(g)
+	return g
 
 
 # --- 대기 주사위(가방) 줄 · 전체 교체 ------------------------------------------
@@ -405,6 +510,8 @@ func _swap_need() -> int:
 func _rebuild_bag_row() -> void:
 	var deck: DeckManager = session.deck
 	UiKit.clear(_bag_row)
+	_bag_tokens.clear()
+	var picking: bool = _pick_swap_index >= 0
 	_bag_row.add_child(UiKit.label("대기 주사위\n%s %d/%d칸" % [session.shop.get_bag_name(), deck.reserve_filled_indices().size(), deck.reserve_unlocked], 12, UiConfig.COLOR_ACCENT))
 	for i: int in range(deck.reserve_unlocked):
 		var d: DiceInstance = deck.reserve[i]
@@ -416,11 +523,17 @@ func _rebuild_bag_row() -> void:
 			_bag_row.add_child(empty)
 			continue
 		var token: Control = DieToken.new()
-		token.call("setup", d, String(d.data.id), "", Color.WHITE, false, false,
-			not deck.can_edit_dice(d), Color.TRANSPARENT, _sel_slot if d == _sel_dice else -1, true, tooltip)
-		token.set_meta("tooltip_text", _dice_tooltip(d, null))
+		token.call("setup", d, String(d.data.id), "교체" if picking else "", UiConfig.COLOR_SELECTED, false, false,
+			not deck.can_edit_dice(d), UiConfig.COLOR_SELECTED if picking else Color.TRANSPARENT,
+			_sel_slot if d == _sel_dice else -1, true, tooltip)
+		token.set_meta("tooltip_text", _dice_tooltip(d, null) + ("\n클릭: 이 주사위로 교체" if picking else ""))
+		var reserve_index: int = i
+		token.connect("pressed", func() -> void:
+			if _pick_swap_index >= 0:
+				_start_swipe(_pick_swap_index, reserve_index))
 		token.connect("slot_pressed", func(slot: int) -> void: _on_slot_pressed(d, slot))
 		_bag_row.add_child(token)
+		_bag_tokens[i] = token
 	var spacer: Control = Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_bag_row.add_child(spacer)
@@ -446,7 +559,7 @@ func _rebuild_bag_row() -> void:
 	else:
 		var all: Button = UiKit.button("전체 교체", 15)
 		all.custom_minimum_size = Vector2(110, 44)
-		all.disabled = not deck.can_edit() or need == 0
+		all.disabled = not deck.can_edit() or need == 0 or picking
 		all.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		all.pressed.connect(func() -> void:
 			if need >= deck.active.size():

@@ -6,7 +6,13 @@ signal screen_requested(screen: String)
 var session: GameSession
 var current_screen: String = "barracks"
 
+const StatIcon: GDScript = preload("res://ui/widgets/stat_icon.gd")
+const HpGauge: GDScript = preload("res://ui/widgets/hp_gauge.gd")
+
 var _status: Label
+var _gold_label: Label
+var _hp_gauge: Control
+var _shield_label: Label
 var _timer_label: Label
 var _extend_button: Button
 var _tabs: Dictionary = {}
@@ -22,9 +28,24 @@ func _ready() -> void:
 
 	var row: HBoxContainer = HBoxContainer.new()
 	add_child(row)
+	# 왼쪽 상태: 라운드 · [금화] 골드 · [하트] 체력 게이지
+	var left: HBoxContainer = HBoxContainer.new()
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left.add_theme_constant_override("separation", 6)
+	row.add_child(left)
 	_status = UiKit.label("", 15)
-	_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(_status)
+	left.add_child(_status)
+	left.add_child(_spacer(10))
+	left.add_child(StatIcon.new().call("setup", "coin"))
+	_gold_label = UiKit.label("", 16, Color("ffe08a"))
+	left.add_child(_gold_label)
+	left.add_child(_spacer(10))
+	left.add_child(StatIcon.new().call("setup", "heart"))
+	_hp_gauge = HpGauge.new()
+	_hp_gauge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	left.add_child(_hp_gauge)
+	_shield_label = UiKit.label("", 13, Color("7fd4ff"))
+	left.add_child(_shield_label)
 
 	var center: HBoxContainer = HBoxContainer.new()
 	center.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -53,6 +74,12 @@ func _ready() -> void:
 		_tabs[key] = b
 
 
+func _spacer(width: int) -> Control:
+	var c: Control = Control.new()
+	c.custom_minimum_size = Vector2(width, 0)
+	return c
+
+
 func _process(_delta: float) -> void:
 	if visible and session != null:
 		_update()
@@ -60,9 +87,10 @@ func _process(_delta: float) -> void:
 
 func _update() -> void:
 	var p: PlayerState = session.player
-	var shield: String = "  실드 %d" % p.round_shield if p.round_shield > 0 else ""
-	_status.text = "라운드 %d / %d   골드 %s   체력 %d / %d%s" % [
-		session.get_round(), LevelTable.FINAL_ROUND, NumberFormatter.format_num(p.gold), p.hp, p.max_hp, shield]
+	_status.text = "라운드 %d / %d" % [session.get_round(), LevelTable.FINAL_ROUND]
+	_gold_label.text = NumberFormatter.format_num(p.gold)
+	_hp_gauge.call("set_values", p.hp, p.max_hp, p.round_shield)
+	_shield_label.text = "실드 %d" % p.round_shield if p.round_shield > 0 else ""
 	_timer_label.text = session.timer.get_text()
 	_timer_label.add_theme_color_override("font_color", Color("ff6b6b") if session.timer.time_left <= UiConfig.TIMER_WARNING_SECONDS else Color.WHITE)
 	_extend_button.disabled = not session.timer.can_extend()
