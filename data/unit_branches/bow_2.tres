@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="UnitBranch" format=3]
+
+[ext_resource type="Script" path="res://core/data/unit_branch.gd" id="1_s4plt"]
+
+[resource]
+script = ExtResource("1_s4plt")
+display_name = "불화살"
+description = "화살이 18 반경 광역 피해, 사거리 +30"
+range_add = 30.0
+splash_add = 18.0

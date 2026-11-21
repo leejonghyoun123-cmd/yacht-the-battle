@@ -37,9 +37,12 @@ static func get_compression_threshold() -> int:
 
 
 ## 칸 총 인원 → { "spawn": 실제 스폰 수, "ratio": 1개체당 환산 인원 }
-static func get_spawn_plan(total_count: int, is_giant: bool) -> Dictionary:
+static func get_spawn_plan(total_count: int, is_giant: bool, is_unique: bool = false) -> Dictionary:
 	if total_count <= 0:
 		return { "spawn": 0, "ratio": 0.0 }
+	# 킹: 칸 인원(=누적 K 수)과 상관없이 1명, 환산 1명
+	if is_unique:
+		return { "spawn": 1, "ratio": 1.0 }
 	if is_giant:
 		var giants: int = 1 if total_count <= GIANT_ONE_MAX else (2 if total_count <= GIANT_TWO_MAX else 3)
 		return { "spawn": giants, "ratio": float(total_count) / float(giants) }

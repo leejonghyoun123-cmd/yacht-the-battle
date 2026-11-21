@@ -1,9 +1,13 @@
 [gd_resource type="Resource" script_class="UnitData" format=3]
 
 [ext_resource type="Script" path="res://core/data/unit_data.gd" id="1_w5rx5"]
+[ext_resource type="Resource" path="res://data/unit_branches/sword_1.tres" id="1_xwelv"]
+[ext_resource type="Resource" path="res://data/unit_branches/sword_2.tres" id="2_d1s0m"]
 
 [resource]
 script = ExtResource("1_w5rx5")
 id = &"sword"
 display_name = "소드"
 color = Color(0.8509804, 0.8666667, 0.9098039, 1)
+branch_1 = ExtResource("1_xwelv")
+branch_2 = ExtResource("2_d1s0m")

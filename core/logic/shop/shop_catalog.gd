@@ -30,6 +30,10 @@ const ENCHANT_PATHS: Array[String] = [
 	"res://data/enchants/parity_even_only.tres",
 	"res://data/enchants/fake_max_face.tres",
 ]
+## 상점 성질 변환 칸에 나올 수 있는 성질
+const TRAIT_PATHS: Array[String] = [
+	"res://data/traits/poker.tres",
+]
 const DICE_DIR: String = "res://data/dice/"
 
 
@@ -54,6 +58,8 @@ static func dice_sell_value(dice: DiceInstance) -> int:
 	var total: int = sell_value(dice_price(dice.data))
 	for inst: EnchantInstance in dice.get_enchants():
 		total += sell_value(enchant_price(inst.data))
+	if dice.trait_data != null:
+		total += sell_value(trait_price(dice.trait_data))
 	return total
 
 
@@ -78,3 +84,16 @@ static func pick_weighted(keys: Array, weights: Array, rng: RandomNumberGenerato
 		if roll <= 0:
 			return keys[i]
 	return keys[keys.size() - 1]
+
+
+static func trait_price(data: DiceTraitData) -> int:
+	return GameBalance.TRAIT_PRICE_BY_RANK[clampi(int(data.rank), 0, GameBalance.TRAIT_PRICE_BY_RANK.size() - 1)]
+
+
+static func trait_pool(round_number: int) -> Array[DiceTraitData]:
+	var pool: Array[DiceTraitData] = []
+	for path: String in TRAIT_PATHS:
+		var data: DiceTraitData = load(path) as DiceTraitData
+		if data != null and data.min_unlock_round <= round_number:
+			pool.append(data)
+	return pool

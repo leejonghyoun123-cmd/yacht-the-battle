@@ -94,6 +94,7 @@ func _ready() -> void:
 	_dice_bar.set("tooltip", tooltip)
 	_dice_bar.connect("selection_changed", _refresh_buttons)
 	_dice_bar.connect("slot_target_chosen", _on_slot_target_chosen)
+	_dice_bar.connect("dice_target_chosen", _on_dice_target_chosen)
 	bar_panel.add_child(_dice_bar)
 
 	var back: Button = _big_button("돌아가기", UiConfig.COLOR_BACK)
@@ -217,6 +218,8 @@ func _setup_icon(icon: Control, offer: ShopOffer) -> void:
 			icon.call("setup", "bag")
 		ShopOffer.Kind.ENCHANT:
 			icon.call("setup", "enchant", offer.enchant_data.get_icon_text(), UiConfig.rarity_color(int(offer.enchant_data.rarity)))
+		ShopOffer.Kind.TRAIT:
+			icon.call("setup", "dice", offer.trait_data.badge, UiConfig.rarity_color(int(offer.trait_data.rank)))
 		_:
 			icon.call("setup", "locked")
 
@@ -248,6 +251,15 @@ func _on_offer_pressed(offer: ShopOffer) -> void:
 		_show_message("[%s] 장착할 빈 슬롯(초록 테두리)을 클릭하세요. 상품을 다시 누르면 취소." % offer.title)
 		refresh()
 		return
+	if offer.kind == ShopOffer.Kind.TRAIT:
+		# 성질 변환: 변환할 주사위(초록 테두리)를 고른다
+		_pending_offer = offer
+		_dice_bar.set("trait_targets", session.shop.get_trait_targets(offer.trait_data))
+		_dice_bar.set("show_reserve", true)
+		_dice_bar.call("refresh")
+		_show_message("[%s] 변환할 주사위(초록 테두리)를 클릭하세요. 상품을 다시 누르면 취소." % offer.title)
+		refresh()
+		return
 	_show_message(_result_text(session.shop.buy(offer), "%s 구매!" % offer.title))
 
 
@@ -262,6 +274,7 @@ func _on_slot_target_chosen(dice: DiceInstance, slot: int) -> void:
 func _cancel_buy_mode() -> void:
 	_pending_offer = null
 	_dice_bar.set("buy_mode", false)
+	_dice_bar.set("trait_targets", [] as Array[DiceInstance])
 	_dice_bar.call("refresh")
 	refresh()
 
@@ -324,3 +337,11 @@ func _big_button(text: String, color: Color) -> Button:
 		sb.set_corner_radius_all(8)
 		b.add_theme_stylebox_override(state, sb)
 	return b
+
+
+func _on_dice_target_chosen(dice: DiceInstance) -> void:
+	if _pending_offer == null or _pending_offer.kind != ShopOffer.Kind.TRAIT:
+		return
+	var offer: ShopOffer = _pending_offer
+	_cancel_buy_mode()
+	_show_message(_result_text(session.shop.buy(offer, dice), "%s 변환 완료!" % offer.title))

@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="UnitBranch" format=3]
+
+[ext_resource type="Script" path="res://core/data/unit_branch.gd" id="1_xcrvf"]
+
+[resource]
+script = ExtResource("1_xcrvf")
+display_name = "치유의 물결"
+description = "회복량 ×1.5, 회복·오라 범위 ×1.4"
+heal_mult = 1.5
+support_radius_mult = 1.4

@@ -31,4 +31,5 @@ func _sample_player_board() -> BoardState:
 	b.place(BoardState.index_of(1, 2), &"sword", 30 * s)     # 소비칸 소드
 	b.place(BoardState.index_of(0, 0), &"bow", 45 * s)       # 소비칸 보우
 	b.place(BoardState.index_of(0, 2), &"healer", 25 * s)    # 소비칸 힐러
+	b.place(BoardState.index_of(1, 0), &"king", 5)            # 소비칸 킹 (K 5장 → 2분기)
 	return b

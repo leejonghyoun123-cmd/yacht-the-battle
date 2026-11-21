@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="UnitData" format=3]
+
+[ext_resource type="Resource" path="res://data/unit_branches/king_1.tres" id="1_i4xed"]
+[ext_resource type="Resource" path="res://data/unit_branches/king_2.tres" id="2_1fi06"]
+[ext_resource type="Script" path="res://core/data/unit_data.gd" id="3_d4d8e"]
+
+[resource]
+script = ExtResource("3_d4d8e")
+id = &"king"
+display_name = "킹"
+color = Color(1, 0.8, 0.2, 1)
+max_hp = 600.0
+attack = 14.0
+attack_range = 18.0
+move_speed = 50.0
+support_radius = 110.0
+body_radius = 8.0
+is_unique = true
+king_attack_mult = 1.3
+king_damage_taken_mult = 0.8
+share_damage_in_aura = true
+branch_thresholds = Vector2i(3, 5)
+branch_1 = ExtResource("1_i4xed")
+branch_2 = ExtResource("2_1fi06")

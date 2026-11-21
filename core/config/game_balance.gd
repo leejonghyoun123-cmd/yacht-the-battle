@@ -40,6 +40,8 @@ const START_RESERVE_SLOTS: int = 2
 
 # --- 상점 (Step 2 이후 사용) ---
 const ENCHANT_PRICE_BY_RARITY: Array[int] = [100, 200, 400, 800]
+## 주사위 성질 변환 가격 (등급 C / B / A / S)
+const TRAIT_PRICE_BY_RANK: Array[int] = [150, 250, 400, 600]
 ## 리롤 가격: 한 라운드 안에서 할수록 25 → 50 → 75원… (다음 라운드에 25원부터)
 const SHOP_REROLL_BASE_COST: int = 25
 const SHOP_REROLL_COST_STEP: int = 25

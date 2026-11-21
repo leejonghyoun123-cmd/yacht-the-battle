@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="UnitBranch" format=3]
+
+[ext_resource type="Script" path="res://core/data/unit_branch.gd" id="1_50331"]
+
+[resource]
+script = ExtResource("1_50331")
+display_name = "대구경 포탄"
+description = "광역 반경 +8, 공격력 ×1.15"
+attack_mult = 1.15
+splash_add = 8.0

@@ -3,10 +3,10 @@ extends RefCounted
 ## 병과 ID → UnitData 조회 (res://data/units/<id>.tres, 한 번 읽으면 캐시)
 
 const UNIT_DIR: String = "res://data/units/"
-const ALL_IDS: Array[StringName] = [&"sword", &"bow", &"shield", &"cannon", &"healer", &"giant"]
+const ALL_IDS: Array[StringName] = [&"sword", &"bow", &"shield", &"cannon", &"healer", &"giant", &"king"]
 ## 일반 주사위로 배치할 수 있는 병과 (거인·킹은 포커카드 에이스 전용 — 포커카드 단계에서 연결)
 const NORMAL_IDS: Array[StringName] = [&"sword", &"bow", &"shield", &"cannon", &"healer"]
-const POKER_ONLY_IDS: Array[StringName] = [&"giant"]
+const POKER_ONLY_IDS: Array[StringName] = [&"giant", &"king"]
 
 
 static func is_poker_only(unit_id: StringName) -> bool:

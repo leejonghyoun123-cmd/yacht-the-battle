@@ -259,7 +259,7 @@ func _make_active_token(index: int) -> Control:
 		border = UiConfig.COLOR_SELECTED
 	elif held:
 		border = UiConfig.COLOR_TARGET
-	var face: String = String(dice.data.id) if result == null else str(result.raw_roll)
+	var face: String = dice.get_short_name() if result == null else dice.face_label(result.raw_roll)
 	var value_text: String = "" if result == null else "→ %s명" % NumberFormatter.format_num(result.summon_value)
 	var token: Control = DieToken.new()
 	token.call("setup", dice, face, value_text, Color("ffe08a"),
@@ -352,7 +352,7 @@ func _process(delta: float) -> void:
 		for i: int in _anim_indices:
 			if i < _tokens.size() and i < session.flow.results.size():
 				var r: DiceRollResult = session.flow.results[i]
-				_tokens[i].call("set_face", str(r.raw_roll))
+				_tokens[i].call("set_face", session.deck.active[i].face_label(r.raw_roll))
 				_tokens[i].call("set_value_text", "→ %s명" % NumberFormatter.format_num(r.summon_value))
 		_anim_indices.clear()
 		_pour_from = Vector2(-1, -1)
@@ -386,7 +386,7 @@ func _on_cup_grabbed() -> void:
 		if flow.has_rolled() and flow.held[i]:
 			continue
 		_tokens[i].visible = false
-		texts.append(String(session.deck.active[i].data.id))
+		texts.append(session.deck.active[i].get_short_name())
 	_cup.call("set_inner", texts)
 
 
@@ -515,7 +515,7 @@ func _start_swipe(active_index: int, reserve_index: int) -> void:
 
 func _ghost(dice: DiceInstance, rect: Rect2) -> Control:
 	var g: Control = ItemIcon.new()
-	g.call("setup", "dice", String(dice.data.id), Color("fff6d8"))
+	g.call("setup", "dice", dice.get_short_name(), Color("fff6d8"))
 	g.position = rect.position - global_position
 	g.size = rect.size
 	g.pivot_offset = rect.size * 0.5
@@ -546,7 +546,7 @@ func _rebuild_bag_row() -> void:
 			_bag_row.add_child(empty)
 			continue
 		var token: Control = DieToken.new()
-		token.call("setup", d, String(d.data.id), "교체" if picking else "", UiConfig.COLOR_SELECTED, false, false,
+		token.call("setup", d, d.get_short_name(), "교체" if picking else "", UiConfig.COLOR_SELECTED, false, false,
 			not deck.can_edit_dice(d), UiConfig.COLOR_SELECTED if picking else Color.TRANSPARENT,
 			_sel_slot if d == _sel_dice else -1, true, tooltip)
 		token.set_meta("tooltip_text", _dice_tooltip(d, null) + ("\n클릭: 이 주사위로 교체" if picking else ""))

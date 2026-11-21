@@ -241,7 +241,12 @@ func _build_selected_panel() -> void:
 	_big_icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_big_icon.call("setup", "dice", NumberFormatter.format_num(s["value"]), Color("fff6d8"))
 	_left_box.add_child(_big_icon)
-	for line: Array in [["선택한 주사위", 12, UiConfig.COLOR_DIM], ["%s명 소환" % NumberFormatter.format_num(s["value"]), 22, Color("ffe08a")], [dice.data.display_name, 12, UiConfig.COLOR_DIM]]:
+	var amount_text: String = "%s명 소환" % NumberFormatter.format_num(s["value"])
+	var sel_data: UnitData = UnitCatalog.get_unit(selected_unit) if selected_unit != &"" else null
+	if sel_data != null and sel_data.is_unique:
+		amount_text = "%s 1명 (누적 +1)" % sel_data.display_name
+	var die_text: String = dice.data.display_name if dice.trait_data == null else "%s %s · 눈금 %s" % [dice.trait_data.display_name, dice.get_short_name(), dice.face_label(int(s["raw"]))]
+	for line: Array in [["선택한 주사위", 12, UiConfig.COLOR_DIM], [amount_text, 22, Color("ffe08a")], [die_text, 12, UiConfig.COLOR_DIM]]:
 		var l: Label = UiKit.label(line[0], line[1], line[2])
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_left_box.add_child(l)
@@ -260,7 +265,7 @@ func _build_selected_panel() -> void:
 ## 아래: 병과 선택 (일반 주사위는 거인·킹 불가 — 포커카드 전용)
 func _build_units() -> void:
 	UiKit.clear(_units_row)
-	for id: StringName in UnitCatalog.NORMAL_IDS:
+	for id: StringName in UnitCatalog.ALL_IDS:
 		if not session.can_use_unit(selected_summon, id):
 			continue
 		var data: UnitData = UnitCatalog.get_unit(id)
@@ -509,8 +514,16 @@ func _summon_tooltip(index: int) -> String:
 
 
 func _unit_tooltip(data: UnitData) -> String:
-	return "%s\n체력 %d · 공격 %d · 공격 간격 %.2f초 · 사거리 %d" % [
+	var text: String = "%s\n체력 %d · 공격 %d · 공격 간격 %.2f초 · 사거리 %d" % [
 		data.display_name, int(data.max_hp), int(data.attack), data.attack_interval, int(data.attack_range)]
+	if data.is_unique:
+		text += "\n왕의 장판: 범위 안 아군 공격력 ×%.1f, 받는 피해 ×%.1f\n킹이 받는 피해는 장판 안 아군이 나눠 받는다\n판에 한 칸만 (K를 같은 칸에 쌓으면 특수능력)" % [data.king_attack_mult, data.king_damage_taken_mult]
+	var thresholds: Array[int] = [data.branch_thresholds.x, data.branch_thresholds.y]
+	var branches: Array[UnitBranch] = [data.branch_1, data.branch_2]
+	for i: int in range(2):
+		if branches[i] != null:
+			text += "\n[%d명 중첩] %s — %s" % [thresholds[i], branches[i].display_name, branches[i].description]
+	return text
 
 
 func _expander() -> Control:

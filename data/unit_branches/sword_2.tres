@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="UnitBranch" format=3]
+
+[ext_resource type="Script" path="res://core/data/unit_branch.gd" id="1_w20j8"]
+
+[resource]
+script = ExtResource("1_w20j8")
+display_name = "회전베기"
+description = "공격이 주변 22 반경 광역 피해가 되고 공격력 ×1.1"
+attack_mult = 1.1
+splash_add = 22.0

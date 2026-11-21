@@ -72,6 +72,7 @@ func start_battle(simulation: BattleSimulation, p_viewer_team: int = 0) -> void:
 	sim = simulation
 	viewer_team = p_viewer_team
 	_effects.clear()
+	_damage_number_count = 0
 	_sim_accumulator = 0.0
 	_gate_open = 0.0
 	_result_panel.visible = false
@@ -93,6 +94,7 @@ func show_preview(simulation: BattleSimulation, p_viewer_team: int = 0) -> void:
 	sim = simulation
 	viewer_team = p_viewer_team
 	_effects.clear()
+	_damage_number_count = 0
 	_gate_open = 0.0
 	_result_panel.visible = false
 	_kill_intro_tween()
@@ -142,6 +144,7 @@ func skip_to_end() -> void:
 	_gate_open = 1.0
 	sim.run_to_end()
 	_effects.clear()
+	_damage_number_count = 0
 	_show_result()
 
 
@@ -156,6 +159,7 @@ func _set_state(s: ViewState) -> void:
 
 func _process(delta: float) -> void:
 	_state_time += delta
+	_anim_time += delta * float(maxi(1, speed))
 	_tick_spawn_anims(delta)
 	_whistle_flash = maxf(0.0, _whistle_flash - delta)
 	match view_state:
@@ -189,7 +193,7 @@ func _consume_events() -> void:
 		match e["type"]:
 			"attack":
 				var attacker: BattleUnit = sim.units[e["from"]]
-				var ranged: bool = attacker.data.attack_range > 40.0
+				var ranged: bool = attacker.attack_range > 40.0
 				_add_effect({
 					"kind": "shot" if ranged else "hit",
 					"from": attacker.pos, "to": e["pos"], "life": 0.18 if ranged else 0.12,
@@ -197,6 +201,8 @@ func _consume_events() -> void:
 				})
 				if float(e["splash"]) > 0.0:
 					_add_effect({ "kind": "boom", "to": e["pos"], "life": 0.35, "radius": e["splash"] })
+			"damage":
+				_add_damage_number(e)
 			"death":
 				_add_effect({ "kind": "death", "to": e["pos"], "life": 0.6 })
 			"whistle":
@@ -210,12 +216,42 @@ func _add_effect(effect: Dictionary) -> void:
 	_effects.append(effect)
 
 
+## 데미지 숫자: 화면이 숫자로 뒤덮이지 않도록 동시에 떠 있는 개수를 제한하고, 같은 대상은 잠깐 합쳐 띄운다
+const MAX_DAMAGE_NUMBERS: int = 70
+const DAMAGE_NUMBER_LIFE: float = 0.75
+## 위로 튀어 오르는 높이 (화면 px, 줌 보정 전)
+const DAMAGE_NUMBER_RISE: float = 30.0
+var _damage_number_count: int = 0
+
+
+func _add_damage_number(e: Dictionary) -> void:
+	var amount: float = float(e["amount"])
+	if amount < 0.05:
+		return
+	# 같은 대상에 막 뜬 숫자가 있으면 합친다 (광역·연타가 숫자 폭탄이 되지 않게)
+	for d: Dictionary in _effects:
+		if d["kind"] == "dmg" and int(d["id"]) == int(e["id"]) and float(d["age"]) < 0.12:
+			d["amount"] = float(d["amount"]) + amount
+			return
+	if _damage_number_count >= MAX_DAMAGE_NUMBERS:
+		return
+	_damage_number_count += 1
+	# 겹침을 줄이기 위해 좌우로 조금 흩뿌린다 (화면 전용 값, 시뮬레이션과 무관)
+	var jitter: float = float((int(e["id"]) * 37 + _damage_number_count * 11) % 17) - 8.0
+	_add_effect({
+		"kind": "dmg", "id": e["id"], "to": e["pos"], "life": DAMAGE_NUMBER_LIFE,
+		"amount": amount, "ally": int(e["team"]) == viewer_team, "jitter": jitter,
+	})
+
+
 func _update_effects(delta: float) -> void:
 	var kept: Array[Dictionary] = []
 	for e: Dictionary in _effects:
 		e["age"] = float(e["age"]) + delta * float(maxi(1, speed))
 		if e["age"] < e["life"]:
 			kept.append(e)
+		elif e["kind"] == "dmg":
+			_damage_number_count -= 1
 	_effects = kept
 
 
@@ -298,28 +334,88 @@ func _draw_barracks(canvas: Node2D, team: int) -> void:
 	canvas.draw_circle(to_screen(gate + Vector2(0.0, gw + 8.0)), 10.0, COLOR_WALL)
 
 
+## 화면 전용 애니메이션 시계 (걷기·흔들림. 시뮬레이션과 무관)
+var _anim_time: float = 0.0
+
+
+## 바라보는 방향: 노리는 적이 있으면 그쪽, 없으면 상대 진영 쪽 (화면 기준 +1 = 오른쪽)
+func _facing(u: BattleUnit, p: Vector2) -> float:
+	if u.target != null and u.target.alive:
+		var dx: float = to_screen(u.target.pos).x - p.x
+		if absf(dx) > 0.5:
+			return signf(dx)
+	return 1.0 if u.team == viewer_team else -1.0
+
+
+## 발밑 타원 고리 (정예 티어 표시)
+func _draw_foot_ring(p: Vector2, r: float, color: Color) -> void:
+	var pts: PackedVector2Array = PackedVector2Array()
+	for i: int in range(17):
+		var a: float = TAU * float(i) / 16.0
+		pts.append(p + Vector2(cos(a) * r, sin(a) * r * 0.5))
+	draw_polyline(pts, color, 2.0)
+
+
+## 데미지 숫자: 위로 빠르게 튀었다가 느려지며 사라진다 (ease-out + 후반 페이드)
+func _draw_damage_numbers() -> void:
+	var font: Font = ThemeDB.fallback_font
+	var zoom: float = maxf(0.2, _camera.zoom.x)
+	var fs: int = int(round(16.0 / zoom))
+	for e: Dictionary in _effects:
+		if e["kind"] != "dmg":
+			continue
+		var t: float = float(e["age"]) / float(e["life"])
+		var rise: float = 1.0 - pow(1.0 - t, 3.0)
+		var alpha: float = 1.0 if t < 0.55 else 1.0 - (t - 0.55) / 0.45
+		var base: Vector2 = to_screen(e["to"])
+		var pos: Vector2 = base + Vector2(float(e["jitter"]), -12.0 - DAMAGE_NUMBER_RISE * rise) / zoom * 0.6
+		var text: String = NumberFormatter.format_num(int(round(float(e["amount"]))))
+		if text == "0":
+			text = "1"
+		var w: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var col: Color = Color(1.0, 0.45, 0.4, alpha) if bool(e["ally"]) else Color(1.0, 0.95, 0.7, alpha)
+		var at: Vector2 = pos + Vector2(-w * 0.5, 0.0)
+		draw_string_outline(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, maxi(2, int(3.0 / zoom * 0.6)), Color(0, 0, 0, 0.85 * alpha))
+		draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
+
+
 func _draw() -> void:
 	if sim == null:
 		return
 	var deploying: bool = view_state == ViewState.INTRO_CAMERA or view_state == ViewState.OPEN_GATES
-	# 정예 오라 (뒤쪽 레이어)
+	# 정예 오라 (뒤쪽 레이어, 발밑)
 	for u: BattleUnit in sim.units:
 		if u.alive and u.tier >= 2:
 			var aura: Color = TIER_COLORS[u.tier - 1]
 			draw_circle(to_screen(_spawn_display_pos(u)), u.radius * 1.9, Color(aura, 0.22))
-	# 유닛 본체: 병과 색 + 팀 색 테두리 (+ 티어 색 고리)
+	# 킹 장판 (바닥에 금빛 원, 은은하게 맥동)
+	for u: BattleUnit in sim.units:
+		if u.alive and u.data.is_unique and u.support_radius > 0.0:
+			var center: Vector2 = _spawn_display_pos(u)
+			var pts: PackedVector2Array = PackedVector2Array()
+			for i: int in range(33):
+				var a: float = TAU * float(i) / 32.0
+				pts.append(to_screen(center + Vector2(cos(a), sin(a)) * u.support_radius))
+			var pulse: float = 0.5 + 0.5 * sin(_anim_time * 3.0)
+			draw_colored_polygon(pts, Color(1.0, 0.82, 0.25, 0.07 + 0.04 * pulse))
+			draw_polyline(pts, Color(1.0, 0.85, 0.3, 0.45 + 0.25 * pulse), 2.0)
+	# 유닛 본체: 스틱맨 (화면 아래쪽 유닛이 앞에 오도록 화면 y 순서로 그린다)
+	var drawn: Array[BattleUnit] = []
 	for u: BattleUnit in sim.units:
 		if not u.alive:
 			continue
 		if deploying and u.pos.distance_squared_to(u.home) > 1.0 and not _inside_barracks(u):
 			continue
+		drawn.append(u)
+	drawn.sort_custom(func(a: BattleUnit, b: BattleUnit) -> bool:
+		return to_screen(a.pos).y < to_screen(b.pos).y)
+	for u: BattleUnit in drawn:
 		var p: Vector2 = to_screen(_spawn_display_pos(u))
-		draw_circle(p, u.radius, u.data.color)
-		draw_arc(p, u.radius + 1.0, 0.0, TAU, 16, TEAM_COLORS[u.team], 2.0)
 		if u.tier >= 2:
-			draw_arc(p, u.radius + 3.5, 0.0, TAU, 20, TIER_COLORS[u.tier - 1], 2.0)
+			_draw_foot_ring(p, u.radius + 3.0, TIER_COLORS[u.tier - 1])
+		var top: float = UnitFigure.draw(self, p, u, _facing(u, p), _anim_time, TEAM_COLORS[u.team])
 		if u.data.is_giant or u.ratio >= 15.0:
-			_draw_hp_bar(p + Vector2(0.0, -u.radius - 7.0), u.radius * 2.2, u.hp / u.max_hp, u.team)
+			_draw_hp_bar(Vector2(p.x, top - 5.0), u.radius * 2.4, u.hp / u.max_hp, u.team)
 	# 공격·사망 이펙트
 	for e: Dictionary in _effects:
 		var t: float = float(e["age"]) / float(e["life"])
@@ -340,6 +436,7 @@ func _draw() -> void:
 				var c: Color = Color(1, 0.3, 0.3, 0.8 * (1.0 - t))
 				draw_line(dp + Vector2(-s, -s), dp + Vector2(s, s), c, 1.5)
 				draw_line(dp + Vector2(-s, s), dp + Vector2(s, -s), c, 1.5)
+	_draw_damage_numbers()
 	# 준비 단계: 칸 강조·이름표 (유닛 위에 겹쳐도 읽히도록 외곽선 글씨)
 	_draw_barracks_overlay()
 	_draw_spawn_bursts()

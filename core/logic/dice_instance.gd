@@ -12,6 +12,8 @@ var slots: Array[EnchantInstance] = []
 var unlocked_slots: int = 3
 ## 주사위별 가변 상태 (X병 스택 등, 원본 .tres 오염 방지)
 var runtime_state: Dictionary = {}
+## 주사위 성질 (03 문서, 1개). null = 성질 없음
+var trait_data: DiceTraitData = null
 
 
 func _init(p_data: DiceData) -> void:
@@ -78,6 +80,8 @@ func get_modified_faces(disabled_slot_indices: Array[int] = []) -> Array[int]:
 
 func _build_faces(ctx: RollContext, disabled_slot_indices: Array[int]) -> Array[int]:
 	var faces: Array[int] = data.faces.duplicate()
+	if trait_data != null:
+		faces = trait_data.modify_base_faces(faces, self)
 	if faces.is_empty():
 		faces = [1]
 	var immune: bool = ctx != null and ctx.immune_to_boss_gimmicks
@@ -187,3 +191,24 @@ func _apply_copy(ctx: RollContext, copier: EnchantInstance, previous_index: int)
 ## [주사위 성질 반영] 단계 — 성질 시스템 구현 시 연결
 func _apply_dice_trait(_ctx: RollContext) -> void:
 	pass
+
+
+## 성질 붙이기 (상점 변환). 붙일 수 없으면 false.
+func attach_trait(p_trait: DiceTraitData, rng: RandomNumberGenerator) -> bool:
+	if p_trait == null or not p_trait.can_attach_to(self):
+		return false
+	trait_data = p_trait
+	p_trait.on_attach(self, rng)
+	return true
+
+
+## 화면 표시용 눈금 글자 (포커카드면 A/J/Q/K)
+func face_label(value: int) -> String:
+	return trait_data.face_label(value) if trait_data != null else str(value)
+
+
+## 주사위 짧은 이름 (아이콘 글자)
+func get_short_name() -> String:
+	if trait_data != null:
+		return trait_data.get_badge_text(self)
+	return String(data.id)

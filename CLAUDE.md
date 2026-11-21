@@ -72,3 +72,8 @@
 - 보스 굴림 기믹: BossRules.roll_modifiers(9R 슬롯1 정지, 12R 곱연산 과세) → RoundFlow.roll_modifiers → DiceRollResolver. 15R 재굴림 -1. GameSession.apply_round_rules가 라운드마다 적용.
 - 인첸트 24종(기존 9 + tools/generate_enchants_v2.gd 15). 새 인첸트는 ShopCatalog.ENCHANT_PATHS에 등록해야 상점에 나온다.
 - 테스트 추가: test_boss(7), test_enchants_v2(24).
+- 중첩 특수능력: UnitData.branch_thresholds(기본 50/150, 킹 3/5) + branch_1/2(UnitBranch .tres, data/unit_branches). 칸 누적 인원(packet.total_count)으로 판정, 2분기는 1분기에 누적. 전투 능력치는 BattleUnit 필드를 쓴다(u.data.* 직접 사용 금지).
+- 킹: is_unique(판에 한 칸, 1명 소환, 칸 인원 = 누적 K 수). 장판 곱배수 공격 ×1.3 / 받는 피해 ×0.8, 킹 피해는 장판 안 아군과 균등 분담(share_targets, 자기 참조 금지). 포커카드(PokerTrait, 2면 전용) A → 거인, K → 킹 (GameSession summons["unlocks"]).
+- 주사위 성질: DiceTraitData(.tres, data/traits, tools/generate_traits.gd) + DiceInstance.trait_data. 새 성질은 ShopCatalog.TRAIT_PATHS에 등록. 가격 GameBalance.TRAIT_PRICE_BY_RANK(C150/B250/A400/S600).
+- 전투 화면: 유닛은 UnitFigure(스틱맨) — 아트 교체 시 이 파일만 바꾼다. 데미지 숫자는 동시 70개 제한 + 같은 대상 0.12초 안 합산.
+- 테스트 추가: test_king_poker(45).

@@ -58,14 +58,14 @@ func setup(team_packets: Array, seed_value: int) -> void:
 		for packet: SpawnPacket in team_packets[team]:
 			if packet.unit_data == null or packet.total_count <= 0:
 				continue
-			var plan: Dictionary = BattleRules.get_spawn_plan(packet.total_count, packet.unit_data.is_giant)
+			var plan: Dictionary = BattleRules.get_spawn_plan(packet.total_count, packet.unit_data.is_giant, packet.unit_data.is_unique)
 			var spawn: int = plan["spawn"]
 			var ratio: float = plan["ratio"]
 			var offsets: Array[Vector2] = _formation_offsets(spawn, packet.unit_data.is_giant)
 			var center: Vector2 = cell_center(team, packet.cell_index)
 			for i: int in range(spawn):
 				var u: BattleUnit = BattleUnit.new()
-				u.setup(next_id, team, packet.cell_index, packet.unit_data, ratio, packet.is_consumable)
+				u.setup(next_id, team, packet.cell_index, packet.unit_data, ratio, packet.is_consumable, packet.total_count)
 				u.home = center + offsets[i]
 				# 연병장 안에서는 배치한 칸대로 정렬해 서 있다가 → 좁은 문으로 우르르 몰려나가 → 필드에서 다시 정렬
 				u.pos = barracks_cell_center(team, packet.cell_index) + offsets[i]
@@ -215,19 +215,21 @@ func _step_fight(dt: float) -> void:
 		if u.target == null or not u.target.alive or u.retarget_timer <= 0.0:
 			u.target = _find_nearest_enemy(u)
 			u.retarget_timer = BattleRules.RETARGET_INTERVAL
-		if u.data.heal_per_second > 0.0:
+		if u.heal_per_second > 0.0:
 			_try_heal(u, dt)
 		if u.target == null:
 			continue
 		var to_target: Vector2 = u.target.pos - u.pos
 		var dist: float = to_target.length()
-		var reach: float = u.data.attack_range + u.radius + u.target.radius
+		var reach: float = u.attack_range + u.radius + u.target.radius
 		if dist > reach:
-			var move: float = minf(u.data.move_speed * dt, dist - reach)
+			var move: float = minf(u.move_speed * dt, dist - reach)
 			u.pos += to_target / dist * move
 		elif u.cooldown <= 0.0:
-			u.cooldown = u.data.attack_interval
+			u.cooldown = u.get_attack_interval()
 			_attack(u, u.target)
+
+	_resolve_collisions()
 
 	var alive_count: Array[int] = [0, 0]
 	for u: BattleUnit in units:
@@ -245,22 +247,89 @@ func _step_fight(dt: float) -> void:
 
 
 func _attack(attacker: BattleUnit, target: BattleUnit) -> void:
-	var damage: float = attacker.attack * (1.0 + attacker.aura_attack)
-	var splash: float = attacker.data.splash_radius
+	var damage: float = attacker.get_attack_damage()
+	var splash: float = attacker.splash_radius
 	events.append({ "type": "attack", "from": attacker.id, "to": target.id, "pos": target.pos, "splash": splash })
 	if splash > 0.0:
 		# 광역 피해는 중심에서 멀수록 약해진다 (중심 100% → 가장자리 SPLASH_EDGE_DAMAGE)
 		for victim: BattleUnit in _enemies_near(attacker.team, target.pos, splash):
 			var t: float = clampf(victim.pos.distance_to(target.pos) / splash, 0.0, 1.0)
-			_apply_damage(victim, damage * lerpf(1.0, BattleRules.SPLASH_EDGE_DAMAGE, t))
+			_hit(attacker, victim, damage * lerpf(1.0, BattleRules.SPLASH_EDGE_DAMAGE, t))
 	else:
-		_apply_damage(target, damage)
+		_hit(attacker, target, damage)
 
 
-func _apply_damage(victim: BattleUnit, damage: float) -> void:
-	victim.take_damage(damage)
+## 공격 1회 적중: 킹 피해 분담 → 피해 적용 → 반사(가시방패)
+func _hit(attacker: BattleUnit, victim: BattleUnit, damage: float) -> void:
+	var dealt: float = 0.0
+	if not victim.share_targets.is_empty():
+		# 킹이 받는 피해는 장판 안 아군(킹 포함)이 똑같이 나눠 받는다
+		var sharers: Array[BattleUnit] = [victim]
+		for s: BattleUnit in victim.share_targets:
+			if s.alive:
+				sharers.append(s)
+		var part: float = damage / float(sharers.size())
+		for s: BattleUnit in sharers:
+			var d: float = _apply_damage(s, part)
+			if s == victim:
+				dealt += d
+	else:
+		dealt = _apply_damage(victim, damage)
+	# 반사 피해는 다시 반사되지 않는다 (반사끼리 무한 반복 방지)
+	if victim.reflect_ratio > 0.0 and dealt > 0.0 and attacker.alive:
+		_apply_damage(attacker, dealt * victim.reflect_ratio)
+
+
+func _apply_damage(victim: BattleUnit, damage: float) -> float:
+	var dealt: float = victim.take_damage(damage)
+	if dealt > 0.0:
+		events.append({ "type": "damage", "id": victim.id, "pos": victim.pos, "amount": dealt, "team": victim.team })
 	if not victim.alive:
 		events.append({ "type": "death", "id": victim.id, "pos": victim.pos })
+	return dealt
+
+
+# =========================================================================
+# 충돌 처리: 겹친 유닛끼리 살짝 밀어내 한 줄로 겹쳐 보이지 않게 한다 (결정론 유지: 고정 순서)
+# =========================================================================
+
+const COLLISION_CELL: float = 24.0
+const COLLISION_PUSH: float = 0.5
+
+
+func _resolve_collisions() -> void:
+	var grid: Dictionary = {}
+	for u: BattleUnit in units:
+		if not u.alive:
+			continue
+		var key: Vector2i = Vector2i(floori(u.pos.x / COLLISION_CELL), floori(u.pos.y / COLLISION_CELL))
+		if not grid.has(key):
+			grid[key] = []
+		(grid[key] as Array).append(u)
+	for u: BattleUnit in units:
+		if not u.alive:
+			continue
+		var key: Vector2i = Vector2i(floori(u.pos.x / COLLISION_CELL), floori(u.pos.y / COLLISION_CELL))
+		for dx: int in range(-1, 2):
+			for dy: int in range(-1, 2):
+				var k: Vector2i = key + Vector2i(dx, dy)
+				if not grid.has(k):
+					continue
+				for other: BattleUnit in grid[k]:
+					if other.id <= u.id or not other.alive:
+						continue
+					var delta: Vector2 = other.pos - u.pos
+					var min_dist: float = (u.radius + other.radius) * 0.9
+					var dist_sq: float = delta.length_squared()
+					if dist_sq >= min_dist * min_dist:
+						continue
+					var dist: float = sqrt(dist_sq)
+					var dir: Vector2 = delta / dist if dist > 0.001 else Vector2(1.0, 0.0).rotated(float(u.id % 12) * 0.52)
+					var push: float = (min_dist - dist) * COLLISION_PUSH
+					# 무거운(큰) 쪽은 덜 밀린다
+					var total: float = u.radius + other.radius
+					u.pos -= dir * push * (other.radius / total)
+					other.pos += dir * push * (u.radius / total)
 
 
 func _try_heal(healer: BattleUnit, dt: float) -> void:
@@ -270,7 +339,7 @@ func _try_heal(healer: BattleUnit, dt: float) -> void:
 	healer.heal_cooldown = 1.0
 	var best: BattleUnit = null
 	var best_ratio: float = 1.0
-	var radius_sq: float = healer.data.support_radius * healer.data.support_radius
+	var radius_sq: float = healer.support_radius * healer.support_radius
 	for ally: BattleUnit in units:
 		if ally.team != healer.team or not ally.alive or ally.hp >= ally.max_hp:
 			continue
@@ -281,7 +350,7 @@ func _try_heal(healer: BattleUnit, dt: float) -> void:
 			best_ratio = r
 			best = ally
 	if best != null:
-		var amount: float = healer.data.heal_per_second * BattleRules.get_stat_multiplier(healer.ratio)
+		var amount: float = healer.heal_per_second
 		best.heal(amount)
 		events.append({ "type": "heal", "from": healer.id, "to": best.id })
 
@@ -290,16 +359,34 @@ func _update_auras() -> void:
 	for u: BattleUnit in units:
 		u.aura_attack = 0.0
 		u.aura_defense = 0.0
+		u.buff_attack_mult = 1.0
+		u.buff_damage_taken_mult = 1.0
+		u.buff_haste_mult = 1.0
+		u.share_targets.clear()
 	for healer: BattleUnit in units:
-		if not healer.alive or healer.data.support_radius <= 0.0:
+		if not healer.alive or healer.support_radius <= 0.0 or healer.data.is_unique:
 			continue
-		if healer.data.aura_attack_bonus <= 0.0 and healer.data.aura_defense_bonus <= 0.0:
+		if healer.aura_attack_bonus <= 0.0 and healer.aura_defense_bonus <= 0.0:
 			continue
-		var radius_sq: float = healer.data.support_radius * healer.data.support_radius
+		var radius_sq: float = healer.support_radius * healer.support_radius
 		for ally: BattleUnit in units:
 			if ally.team == healer.team and ally.alive and ally.pos.distance_squared_to(healer.pos) <= radius_sq:
-				ally.aura_attack = maxf(ally.aura_attack, healer.data.aura_attack_bonus)
-				ally.aura_defense = maxf(ally.aura_defense, healer.data.aura_defense_bonus)
+				ally.aura_attack = maxf(ally.aura_attack, healer.aura_attack_bonus)
+				ally.aura_defense = maxf(ally.aura_defense, healer.aura_defense_bonus)
+	# 킹 장판: 범위 안 아군 공격력·방어·공속 곱배수 버프, 피해 분담 명단 작성
+	for king: BattleUnit in units:
+		if not king.alive or not king.data.is_unique or king.support_radius <= 0.0:
+			continue
+		var king_sq: float = king.support_radius * king.support_radius
+		for ally: BattleUnit in units:
+			if ally.team != king.team or not ally.alive or ally.pos.distance_squared_to(king.pos) > king_sq:
+				continue
+			ally.buff_attack_mult = maxf(ally.buff_attack_mult, king.king_attack_mult)
+			ally.buff_damage_taken_mult = minf(ally.buff_damage_taken_mult, king.king_damage_taken_mult)
+			ally.buff_haste_mult = maxf(ally.buff_haste_mult, king.king_haste_mult)
+			# 명단에는 킹 자신을 넣지 않는다 (자기 참조 순환 방지). 분담 시 킹을 따로 더한다.
+			if king.data.share_damage_in_aura and ally != king:
+				king.share_targets.append(ally)
 
 
 # =========================================================================
@@ -407,6 +494,7 @@ func _finish(winner: int, reason: String) -> void:
 	# 유닛끼리 서로를 target으로 참조하면 RefCounted 순환 참조로 메모리가 해제되지 않는다
 	for u: BattleUnit in units:
 		u.target = null
+		u.share_targets.clear()
 	result = r
 	_set_phase(Phase.ENDED)
 	battle_ended.emit(r)

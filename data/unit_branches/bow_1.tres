@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="UnitBranch" format=3]
+
+[ext_resource type="Script" path="res://core/data/unit_branch.gd" id="1_vfcyd"]
+
+[resource]
+script = ExtResource("1_vfcyd")
+display_name = "속사"
+description = "공격 간격 ×0.75 (공속 33% 증가)"
+interval_mult = 0.75

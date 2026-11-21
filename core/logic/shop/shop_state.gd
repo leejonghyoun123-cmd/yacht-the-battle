@@ -79,8 +79,18 @@ func get_wall_shield() -> int:
 
 func _roll_random_offers() -> void:
 	dice_offers.clear()
+	# 성질 변환 칸: 첫 칸은 성질 풀에서 추첨, 나머지는 성질 10종 추가 단계 전까지 잠김
+	var traits: Array[DiceTraitData] = ShopCatalog.trait_pool(round_number)
 	for i: int in range(TRAIT_OFFER_COUNT):
-		dice_offers.append(_make(ShopOffer.Kind.TRAIT_LOCKED, 0, "성질 변환", "주사위 성질 단계에서 추가됩니다"))
+		if i == 0 and not traits.is_empty():
+			var t: DiceTraitData = traits[rng.randi_range(0, traits.size() - 1)]
+			var rank_names: Array[String] = ["C", "B", "A", "S"]
+			var t_offer: ShopOffer = _make(ShopOffer.Kind.TRAIT, ShopCatalog.trait_price(t), t.display_name,
+				"[%s등급 성질]\n%s\n구매 후 변환할 주사위를 클릭하세요" % [rank_names[int(t.rank)], t.description])
+			t_offer.trait_data = t
+			dice_offers.append(t_offer)
+		else:
+			dice_offers.append(_make(ShopOffer.Kind.TRAIT_LOCKED, 0, "성질 변환", "주사위 성질 단계에서 추가됩니다"))
 	var dice_keys: Array = GameBalance.DICE_SHOP_WEIGHTS.keys()
 	var dice_weights: Array = GameBalance.DICE_SHOP_WEIGHTS.values()
 	for i: int in range(DICE_OFFER_COUNT - TRAIT_OFFER_COUNT):
@@ -170,7 +180,23 @@ func can_buy(offer: ShopOffer) -> String:
 		ShopOffer.Kind.ENCHANT:
 			if not deck.has_free_enchant_slot():
 				return "빈 인첸트 슬롯이 없습니다 — 인첸트를 판매해 자리를 만드세요"
+		ShopOffer.Kind.TRAIT:
+			if get_trait_targets(offer.trait_data).is_empty():
+				return "변환할 수 있는 주사위가 없습니다 (%s)" % _trait_requirement(offer.trait_data)
 	return ""
+
+
+## 이 성질로 변환할 수 있는 내 주사위 (이번 라운드에 굴린 주사위 제외)
+func get_trait_targets(t: DiceTraitData) -> Array[DiceInstance]:
+	var out: Array[DiceInstance] = []
+	for d: DiceInstance in deck.all_dice():
+		if d != null and deck.can_edit_dice(d) and t.can_attach_to(d):
+			out.append(d)
+	return out
+
+
+static func _trait_requirement(t: DiceTraitData) -> String:
+	return t.get_requirement_text()
 
 
 ## 구매. 인첸트는 target_dice / target_slot(빈 슬롯) 지정 필수.
@@ -186,6 +212,11 @@ func buy(offer: ShopOffer, target_dice: DiceInstance = null, target_slot: int = 
 				return "빈 슬롯을 골라 주세요"
 			player.spend_gold(offer.price)
 			deck.equip_enchant(target_dice, target_slot, EnchantInstance.new(offer.enchant_data))
+		ShopOffer.Kind.TRAIT:
+			if target_dice == null or not get_trait_targets(offer.trait_data).has(target_dice):
+				return "이 주사위는 변환할 수 없습니다 (%s)" % _trait_requirement(offer.trait_data)
+			player.spend_gold(offer.price)
+			target_dice.attach_trait(offer.trait_data, rng)
 		ShopOffer.Kind.DICE:
 			player.spend_gold(offer.price)
 			deck.add_to_reserve(DiceInstance.new(offer.dice_data))

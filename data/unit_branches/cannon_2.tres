@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="UnitBranch" format=3]
+
+[ext_resource type="Script" path="res://core/data/unit_branch.gd" id="1_yvk0r"]
+
+[resource]
+script = ExtResource("1_yvk0r")
+display_name = "연발 포격"
+description = "공격 간격 ×0.6 (공속 67% 증가)"
+interval_mult = 0.6

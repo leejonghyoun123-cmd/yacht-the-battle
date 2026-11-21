@@ -161,9 +161,15 @@ func _on_yacht_recorded(_category: int, _gold: int) -> void:
 	summons.clear()
 	for result: DiceRollResult in flow.results:
 		var mod: Dictionary = BossRules.modify_summon(get_round(), result)
+		# 포커카드 등 성질이 원시 눈금에 따라 해금하는 병과 (A → 거인, K → 킹)
+		var die: DiceInstance = deck.active[result.dice_index]
+		var unlocks: Array[StringName] = []
+		if die.trait_data != null:
+			unlocks = die.trait_data.get_unlocked_units(result.raw_roll, die)
 		summons.append({
 			"dice_index": result.dice_index, "base": result.summon_value,
 			"value": mod["value"], "reason": mod["reason"],
+			"raw": result.raw_roll, "unlocks": unlocks, "amount": 0,
 			"placed": false, "unit_id": &"", "cell": -1,
 		})
 	_board_snapshot = board.to_dict()
@@ -180,16 +186,29 @@ func can_place(summon_index: int, unit_id: StringName, cell_index: int) -> bool:
 	return board.can_place(cell_index, unit_id)
 
 
-## 이 주사위로 이 병과를 배치할 수 있는가. 거인·킹은 포커카드(에이스) 전용이라
-## 포커카드 성질이 생기기 전까지 일반 주사위에서는 항상 불가.
-func can_use_unit(_summon_index: int, unit_id: StringName) -> bool:
-	return not UnitCatalog.is_poker_only(unit_id)
+## 이 주사위로 이 병과를 배치할 수 있는가. 거인·킹은 포커카드 전용 (A → 거인, K → 킹).
+func can_use_unit(summon_index: int, unit_id: StringName) -> bool:
+	if not UnitCatalog.is_poker_only(unit_id):
+		return true
+	if summon_index < 0 or summon_index >= summons.size():
+		return false
+	return (summons[summon_index]["unlocks"] as Array).has(unit_id)
+
+
+## 이 소환으로 칸에 더해질 인원. 유일 유닛(킹)은 소환값과 상관없이 1 (= 누적 K 수)
+func get_place_amount(summon_index: int, unit_id: StringName) -> int:
+	var data: UnitData = UnitCatalog.get_unit(unit_id)
+	if data != null and data.is_unique:
+		return 1
+	return int(summons[summon_index]["value"])
 
 
 func place(summon_index: int, unit_id: StringName, cell_index: int) -> bool:
 	if not can_place(summon_index, unit_id, cell_index):
 		return false
-	board.place(cell_index, unit_id, summons[summon_index]["value"])
+	var amount: int = get_place_amount(summon_index, unit_id)
+	board.place(cell_index, unit_id, amount)
+	summons[summon_index]["amount"] = amount
 	summons[summon_index]["placed"] = true
 	summons[summon_index]["unit_id"] = unit_id
 	summons[summon_index]["cell"] = cell_index
@@ -208,7 +227,7 @@ func get_replace_info(cell_index: int, unit_id: StringName) -> Dictionary:
 	for i: int in range(summons.size()):
 		if summons[i]["placed"] and summons[i]["cell"] == cell_index:
 			returned.append(i)
-			this_round += int(summons[i]["value"])
+			this_round += int(summons[i]["amount"])
 	# 이번 라운드에 놓은 인원은 판매가 아니라 주사위로 되돌리고, 이전 라운드부터 있던 인원만 판매
 	var persistent: int = maxi(0, cell.count - this_round)
 	var gold: int = persistent * GameBalance.STACK_SELL_PER_UNIT if cell.is_stack else 0

@@ -8,6 +8,8 @@ extends VBoxContainer
 
 signal selection_changed
 signal slot_target_chosen(dice: DiceInstance, slot: int)
+## 성질 변환 구매 중 주사위를 고름
+signal dice_target_chosen(dice: DiceInstance)
 
 const ItemIcon: GDScript = preload("res://ui/widgets/item_icon.gd")
 const SlotRow: GDScript = preload("res://ui/widgets/slot_row.gd")
@@ -17,6 +19,8 @@ var tooltip: Node
 var selected_dice: DiceInstance = null
 var selected_slot: int = -1
 var buy_mode: bool = false
+## 성질 변환 구매 중: 변환 가능한 주사위만 강조, 클릭 시 dice_target_chosen
+var trait_targets: Array[DiceInstance] = []
 var show_reserve: bool = false
 
 var _reserve_panel: PanelContainer
@@ -99,7 +103,10 @@ func _dice_widget(dice: DiceInstance, caption: String) -> Control:
 	var editable: bool = session.deck.can_edit_dice(dice)
 	var box: VBoxContainer = VBoxContainer.new()
 	box.add_theme_constant_override("separation", 2)
-	var icon_holder: PanelContainer = _panel(Color(0, 0, 0, 0.0), UiConfig.COLOR_SELECTED if dice == selected_dice and selected_slot < 0 else Color.TRANSPARENT)
+	var ring: Color = UiConfig.COLOR_SELECTED if dice == selected_dice and selected_slot < 0 else Color.TRANSPARENT
+	if trait_targets.has(dice):
+		ring = UiConfig.COLOR_TARGET
+	var icon_holder: PanelContainer = _panel(Color(0, 0, 0, 0.0), ring)
 	icon_holder.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	var icon: Control = ItemIcon.new()
 	icon.custom_minimum_size = UiConfig.DICE_ICON_SIZE
@@ -157,6 +164,10 @@ func _bag_widget() -> Control:
 
 
 func _on_dice_pressed(dice: DiceInstance) -> void:
+	if not trait_targets.is_empty():
+		if trait_targets.has(dice):
+			dice_target_chosen.emit(dice)
+		return
 	if selected_dice == dice and selected_slot < 0:
 		selected_dice = null
 	else:
@@ -168,6 +179,9 @@ func _on_dice_pressed(dice: DiceInstance) -> void:
 
 func _on_slot_pressed(dice: DiceInstance, slot: int) -> void:
 	var deck: DeckManager = session.deck
+	if not trait_targets.is_empty():
+		_on_dice_pressed(dice)
+		return
 	if buy_mode:
 		if deck.can_edit_dice(dice) and slot < dice.unlocked_slots and dice.slots[slot] == null:
 			slot_target_chosen.emit(dice, slot)
@@ -187,14 +201,17 @@ func _on_slot_pressed(dice: DiceInstance, slot: int) -> void:
 
 
 func _dice_short(dice: DiceInstance) -> String:
-	return String(dice.data.id)
+	return dice.get_short_name()
 
 
 func _dice_tooltip(dice: DiceInstance) -> String:
 	var names: PackedStringArray = []
 	for inst: EnchantInstance in dice.get_enchants():
 		names.append(inst.get_display_name())
-	var faces: String = str(dice.data.faces) if dice.data.faces.size() <= 8 else "1 ~ %d" % dice.data.faces.size()
+	var base_faces: Array[int] = dice.get_modified_faces()
+	var faces: String = str(base_faces) if base_faces.size() <= 8 else "%d ~ %d" % [base_faces.min(), base_faces.max()]
+	if dice.trait_data != null:
+		faces += "\n성질: %s %s" %[dice.trait_data.display_name, dice.get_short_name()]
 	var lock_note: String = "\n이번 라운드에 굴린 주사위 — 인첸트 고정" if not session.deck.can_edit_dice(dice) else ""
 	return "%s\n면: %s\n인첸트: %s\n판매가 %d원 (인첸트 포함)%s" % [
 		dice.data.display_name, faces, " → ".join(names) if names.size() > 0 else "없음",
