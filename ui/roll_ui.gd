@@ -1,6 +1,6 @@
 extends Control
 ## 주사위 테이블 화면 (예시 이미지의 배치 구조 참고, 외형은 자체 제작)
-##   왼쪽: 종이 기록지 (굴린 뒤 노란 칸을 눌러 기록·확정)
+##   왼쪽: 종이 기록지 (굴린 뒤 노란 칸을 눌러 기록·확정 → 바로 유닛배치 화면으로. 굴리기를 다 쓰면 기록지가 빛나며 맥동)
 ##   가운데 위: 주사위 쟁반 — 출전(굴리는) 주사위. 누르면 고정되어 위 선반으로 (고정한 순서대로 왼쪽부터)
 ##   주사위통: 누른 채 흔들고(커서를 따라다님) 놓으면 주사위가 펠트로 쏟아져 튕기며 구른 뒤 결과가 나온다 (굴리기 버튼 없음)
 ##   가운데 아래: 대기 주사위(가방) + [전체 교체]
@@ -35,6 +35,11 @@ const COLOR_WOOD_GRAIN: Color = Color("5e3f27")
 const POUR_TIME: float = 0.5
 const FLICKER_INTERVAL: float = 0.05
 const SWIPE_TIME: float = 0.4
+## 기록 후 유닛배치로 넘어가기까지 (기록된 숫자를 잠깐 보여 줌)
+const RECORD_TO_PLACE_DELAY: float = 0.45
+## 기록지 강조: 최대 크기 배율과 반 주기
+const SHEET_PULSE_SCALE: float = 1.04
+const SHEET_PULSE_TIME: float = 0.5
 
 var session: GameSession
 var tooltip: Node
@@ -47,7 +52,8 @@ var _boss_label: Label
 var _rolls_label: Label
 var _status_label: Label
 var _calc_label: RichTextLabel
-var _place_button: Button
+## 굴리기를 다 쓰면 기록지가 빛나며 커졌다 작아졌다 (기록 잊지 않게)
+var _sheet_pulse: Tween = null
 var _side_panel: PanelContainer
 var _side_label: Label
 
@@ -101,7 +107,8 @@ func _ready() -> void:
 	_sheet = ScoreSheet.new()
 	_sheet.custom_minimum_size = Vector2(240, 0)
 	_sheet.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	_sheet.connect("category_pressed", func(c: int) -> void: session.flow.record_yacht(c))
+	_sheet.connect("category_pressed", _on_category_pressed)
+	_sheet.resized.connect(func() -> void: _sheet.pivot_offset = _sheet.size * 0.5)
 	main.add_child(_sheet)
 
 	# 가운데: 쟁반(위) + 대기 주사위(아래)
@@ -136,14 +143,6 @@ func _ready() -> void:
 	_rolls_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	rolls_panel.add_child(_rolls_label)
 	right.add_child(rolls_panel)
-	# 기록 후: 눈에 확 띄는 배치 버튼 (초록 + 큰 글씨 + 깜빡임)
-	_place_button = _colored_button("유닛배치로 가서\n배치하기 ▶", Color("2fae6b"), 20)
-	_place_button.custom_minimum_size = Vector2(0, 84)
-	_place_button.pressed.connect(func() -> void: placement_requested.emit())
-	right.add_child(_place_button)
-	var pulse: Tween = _place_button.create_tween().set_loops()
-	pulse.tween_property(_place_button, "modulate", Color(1.25, 1.25, 1.25), 0.55)
-	pulse.tween_property(_place_button, "modulate", Color.WHITE, 0.55)
 	_status_label = UiKit.label("", 13, UiConfig.COLOR_ACCENT)
 	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_status_label.custom_minimum_size = Vector2(200, 0)
@@ -236,12 +235,11 @@ func refresh() -> void:
 			_rolls_label.text = "남은 굴리기 %d회" % flow.rerolls_left
 			_status_label.text = "남길 주사위를 눌러 고정(위 선반)하고 다시 흔들어 굴리거나, 기록지의 노란 칸을 눌러 기록하세요."
 		RoundFlow.Phase.RECORDED:
-			# 기록 완료는 작게, 배치 버튼이 눈에 띄도록
 			_rolls_label.text = "기록 완료"
 			_rolls_label.add_theme_font_size_override("font_size", 15)
 			_rolls_label.add_theme_color_override("font_color", UiConfig.COLOR_DIM)
 			_status_label.text = "%s 기록 +%s원" % [YachtBoard.CATEGORY_NAMES[flow.recorded_category], NumberFormatter.format_num(flow.recorded_gold)]
-	_place_button.visible = flow.phase == RoundFlow.Phase.RECORDED
+	_update_sheet_pulse()
 
 	var can: bool = flow.can_roll() and not _swap_mode and _pick_swap_index < 0
 	_cup.set("enabled", can)
@@ -432,6 +430,38 @@ func _on_rolled(_results: Array[DiceRollResult]) -> void:
 # =========================================================================
 # 조작
 # =========================================================================
+
+## 기록지에 기록하면 잉크가 찍히는 걸 잠깐 보여 준 뒤 바로 유닛배치 화면으로
+func _on_category_pressed(category: int) -> void:
+	if not session.flow.record_yacht(category):
+		return
+	get_tree().create_timer(RECORD_TO_PLACE_DELAY).timeout.connect(func() -> void:
+		if visible and session.flow.phase == RoundFlow.Phase.RECORDED:
+			placement_requested.emit())
+
+
+## 남은 굴리기 0회 + 아직 기록 전이면 기록지를 키웠다 줄였다 하며 빛나게
+func _update_sheet_pulse() -> void:
+	var flow: RoundFlow = session.flow
+	var need: bool = flow.phase == RoundFlow.Phase.ROLLING and flow.rerolls_left <= 0
+	if need:
+		if _sheet_pulse != null and _sheet_pulse.is_valid():
+			return
+		_sheet.pivot_offset = _sheet.size * 0.5
+		_sheet.call("set_glow", true)
+		_sheet_pulse = _sheet.create_tween().set_loops()
+		_sheet_pulse.tween_property(_sheet, "scale", Vector2.ONE * SHEET_PULSE_SCALE, SHEET_PULSE_TIME).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		_sheet_pulse.parallel().tween_property(_sheet, "modulate", Color(1.12, 1.12, 1.05), SHEET_PULSE_TIME)
+		_sheet_pulse.tween_property(_sheet, "scale", Vector2.ONE, SHEET_PULSE_TIME).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		_sheet_pulse.parallel().tween_property(_sheet, "modulate", Color.WHITE, SHEET_PULSE_TIME)
+		return
+	if _sheet_pulse != null:
+		_sheet_pulse.kill()
+		_sheet_pulse = null
+	_sheet.scale = Vector2.ONE
+	_sheet.modulate = Color.WHITE
+	_sheet.call("set_glow", false)
+
 
 func _on_token_pressed(index: int) -> void:
 	var flow: RoundFlow = session.flow

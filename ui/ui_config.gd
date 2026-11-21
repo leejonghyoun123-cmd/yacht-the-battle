@@ -26,12 +26,19 @@ const COLOR_LOCKED: Color = Color(0.25, 0.25, 0.28)
 const RARITY_COLORS: Array[Color] = [Color("aab4c8"), Color("6fd38c"), Color("6d8cff"), Color("ff9a3c")]
 
 # --- 상점 카드 ---
-const SHOP_CARD_SIZE: Vector2 = Vector2(150, 150)
-const SHOP_ICON_SIZE: Vector2 = Vector2(86, 86)
-const SHOP_ROW_GAP: int = 10
-const SHOP_COLUMN_GAP: int = 8
-## 왼쪽 상시 열(식량·성벽)과 나머지 사이 간격
-const SHOP_FIXED_COLUMN_GAP: int = 28
+## 카드 최소 크기 (진열대 폭에 맞춰 넓어진다)
+const SHOP_CARD_SIZE: Vector2 = Vector2(132, 168)
+const SHOP_ICON_SIZE: Vector2 = Vector2(100, 100)
+const SHOP_ROW_GAP: int = 14
+const SHOP_COLUMN_GAP: int = 12
+## 각 줄 첫 칸(상시 식량·성벽)과 나머지 사이 간격
+const SHOP_FIXED_COLUMN_GAP: int = 30
+## 왼쪽 간판·버튼 열 폭
+const SHOP_SIDE_WIDTH: int = 236
+## 가격표 크기와 카드 위로 걸치는 높이
+const SHOP_TAG_SIZE: Vector2 = Vector2(96, 34)
+const SHOP_FRAME_COLOR: Color = Color("c8463d")
+const SHOP_CARD_BG: Color = Color("1e2b2a")
 
 # --- 주사위 위젯 (주사위 + 아래 동그란 인첸트 슬롯) ---
 const DICE_ICON_SIZE: Vector2 = Vector2(64, 64)

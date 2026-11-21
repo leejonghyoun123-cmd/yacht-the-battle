@@ -19,6 +19,9 @@ var _top_layer: CanvasLayer
 var _settle_panel: PanelContainer
 var _settle_label: Label
 var _settle_button: Button
+## 화면 전환 슬라이드
+const SLIDE_TIME: float = 0.42
+var _slide_tween: Tween = null
 
 
 func _ready() -> void:
@@ -86,17 +89,20 @@ func _process(delta: float) -> void:
 		session.timer.tick(delta)
 
 
-## 준비 화면 전환 (연병장(=배치) / 주사위 / 상점)
+## 준비 화면 전환 (연병장(=배치) / 주사위 / 상점).
+## 이미 다른 준비 화면을 보고 있었다면 상단 탭 순서 방향으로 빠르게 밀려나며 바뀐다.
 func show_screen(key: String) -> void:
 	if not session.is_preparing():
 		return
-	current_screen = key
+	var previous: String = current_screen
+	var was_visible: bool = screens.has(previous) and (screens[previous] as Control).visible
 	if key == "roll":
 		session.go_to_rolling()
 	elif key == "barracks":
 		session.go_to_barracks()
 	current_screen = key
 	tooltip.call("hide_tip")
+	_kill_slide()
 	for k: String in screens.keys():
 		(screens[k] as Control).visible = k == key
 	_settle_panel.visible = false
@@ -108,11 +114,57 @@ func show_screen(key: String) -> void:
 		_refresh_preview()
 	if screens[key].has_method("refresh"):
 		screens[key].call("refresh")
+	if was_visible and previous != key and not _settle_panel.visible:
+		_slide(previous, key)
+
+
+## 스와이프 전환: 새 화면은 옆에서 들어오고 이전 화면은 반대쪽으로 빠진다.
+## 빠르게 미끄러지다가 멈추기 직전에 살짝 느려지는 곡선 (EXPO + EASE_OUT).
+func _slide(from_key: String, to_key: String) -> void:
+	var order: Array[String] = ["barracks", "roll", "shop"]
+	var dir: float = 1.0 if order.find(to_key) > order.find(from_key) else -1.0
+	var old_screen: Control = screens[from_key]
+	var new_screen: Control = screens[to_key]
+	var width: float = maxf(new_screen.size.x, float(UiConfig.BASE_SIZE.x))
+	old_screen.visible = true
+	new_screen.position.x = dir * width
+	old_screen.position.x = 0.0
+	# 유닛배치 화면은 뒤의 연병장(BattleView)도 같이 밀어야 한 장의 화면처럼 보인다
+	_set_view_shift(to_key, dir * width)
+	_set_view_shift(from_key, 0.0)
+	_slide_tween = create_tween().set_parallel(true)
+	_slide_tween.tween_method(func(t: float) -> void:
+		var x_new: float = dir * width * (1.0 - t)
+		var x_old: float = -dir * width * t
+		new_screen.position.x = x_new
+		old_screen.position.x = x_old
+		_set_view_shift(to_key, x_new)
+		_set_view_shift(from_key, x_old),
+		0.0, 1.0, SLIDE_TIME).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	_slide_tween.chain().tween_callback(_kill_slide)
+
+
+## 진행 중인 전환을 끝 상태로 정리 (보이는 화면만 제자리, 나머지 숨김)
+func _kill_slide() -> void:
+	if _slide_tween != null:
+		_slide_tween.kill()
+		_slide_tween = null
+	for k: String in screens.keys():
+		var s: Control = screens[k]
+		s.position.x = 0.0
+		s.visible = k == current_screen and session.is_preparing()
+	view.call("set_screen_shift", Vector2.ZERO)
+
+
+func _set_view_shift(key: String, x: float) -> void:
+	if key == "barracks":
+		view.call("set_screen_shift", Vector2(x, 0.0))
 
 
 func _on_phase_changed(p: GameSession.Phase) -> void:
 	match p:
 		GameSession.Phase.BATTLE:
+			_kill_slide()
 			for k: String in screens.keys():
 				(screens[k] as Control).visible = false
 			top_bar.visible = false

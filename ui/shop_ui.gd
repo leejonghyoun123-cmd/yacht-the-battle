@@ -1,8 +1,10 @@
 extends Control
-## 상점 화면 (배치는 예시 이미지 기준, 크기·간격은 UiConfig에서 조정)
-##   [식량축적] [성질변환][성질변환][다면주사위][다면주사위] [가방]
-##   [성벽증축] [타로/아이템][타로/아이템] [인첸트][인첸트][인첸트]
-##   [판매][리롤]   [ 내 주사위 + 가방 (DiceBar) ]   [돌아가기]
+## 상점 화면 (예시 이미지의 구성: 왼쪽 간판·버튼 열 + 오른쪽 테두리 진열대. 크기·간격은 UiConfig)
+##   [간판 "상점"]   | [식량축적]  [성질변환][성질변환][다면주사위][다면주사위] [가방]
+##   [알림]          | [성벽증축]  [타로][아이템] [인첸트][인첸트][인첸트]
+##   [판매][리롤]    |
+##   [돌아가기]      | [ 내 주사위 + 가방 (DiceBar) ]
+##   상품마다 위에 가격표(꼬리표)가 걸린다 (ui/widgets/price_tag.gd)
 ## 판매: 내 주사위/인첸트를 클릭해 선택 → [판매]. 인첸트 구매: 상품 클릭 → 빈 슬롯 클릭.
 
 signal back_requested
@@ -11,11 +13,12 @@ const ItemIcon: GDScript = preload("res://ui/widgets/item_icon.gd")
 const DiceBar: GDScript = preload("res://ui/widgets/dice_bar.gd")
 const DicePickOverlay: GDScript = preload("res://ui/widgets/dice_pick_overlay.gd")
 const ChoicePopup: GDScript = preload("res://ui/widgets/choice_popup.gd")
+const PriceTag: GDScript = preload("res://ui/widgets/price_tag.gd")
+const ShopSign: GDScript = preload("res://ui/widgets/shop_sign.gd")
 
 var session: GameSession
 var tooltip: Node
 
-var _fixed_col: VBoxContainer
 var _row1: HBoxContainer
 var _row2: HBoxContainer
 var _message: Label
@@ -38,64 +41,104 @@ func _ready() -> void:
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 
+	# 배경 무늬 (옅은 사선)
+	var pattern: Control = Control.new()
+	pattern.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	pattern.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pattern.draw.connect(func() -> void:
+		var step: float = 36.0
+		var n: int = int((pattern.size.x + pattern.size.y) / step) + 1
+		for i: int in range(n):
+			var x: float = float(i) * step
+			pattern.draw_line(Vector2(x, 0), Vector2(x - pattern.size.y, pattern.size.y), Color(1, 1, 1, 0.025), 10.0))
+	add_child(pattern)
+
 	var margin: MarginContainer = MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 16)
-	margin.add_theme_constant_override("margin_right", 16)
-	margin.add_theme_constant_override("margin_top", UiConfig.TOP_BAR_HEIGHT + 10)
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_right", 12)
+	margin.add_theme_constant_override("margin_top", UiConfig.TOP_BAR_HEIGHT + 8)
 	margin.add_theme_constant_override("margin_bottom", 10)
 	add_child(margin)
-	var main: VBoxContainer = VBoxContainer.new()
-	main.add_theme_constant_override("separation", 8)
+	var main: HBoxContainer = HBoxContainer.new()
+	main.add_theme_constant_override("separation", 14)
 	margin.add_child(main)
 
-	# 진열대
-	var shelf: HBoxContainer = HBoxContainer.new()
-	shelf.alignment = BoxContainer.ALIGNMENT_CENTER
-	shelf.add_theme_constant_override("separation", UiConfig.SHOP_FIXED_COLUMN_GAP)
-	main.add_child(shelf)
-	_fixed_col = VBoxContainer.new()
-	_fixed_col.add_theme_constant_override("separation", UiConfig.SHOP_ROW_GAP)
-	shelf.add_child(_fixed_col)
+	# 왼쪽 열: 간판 · 알림 · [판매] [리롤] [돌아가기]
+	var side: VBoxContainer = VBoxContainer.new()
+	side.custom_minimum_size = Vector2(UiConfig.SHOP_SIDE_WIDTH, 0)
+	side.add_theme_constant_override("separation", 10)
+	main.add_child(side)
+	side.add_child(ShopSign.new())
+	var msg_panel: PanelContainer = UiKit.panel(Color(0.06, 0.08, 0.08, 0.85))
+	msg_panel.custom_minimum_size = Vector2(0, 92)
+	_message = UiKit.label("상품을 누르면 구매합니다.\n내 주사위·인첸트를 눌러 고른 뒤 [판매].", 14, UiConfig.COLOR_ACCENT)
+	_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_message.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	msg_panel.add_child(_message)
+	side.add_child(msg_panel)
+	var spacer: Control = Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	side.add_child(spacer)
+	var money_row: HBoxContainer = HBoxContainer.new()
+	money_row.add_theme_constant_override("separation", 10)
+	side.add_child(money_row)
+	_sell_button = _big_button("판매", UiConfig.COLOR_SELL)
+	_sell_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_sell_button.custom_minimum_size = Vector2(0, 76)
+	_sell_button.pressed.connect(_on_sell_pressed)
+	money_row.add_child(_sell_button)
+	_reroll_button = _big_button("리롤", UiConfig.COLOR_REROLL)
+	_reroll_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_reroll_button.custom_minimum_size = Vector2(0, 76)
+	_reroll_button.pressed.connect(func() -> void: _show_message(_result_text(session.shop.reroll(), "새 상품이 진열되었습니다")))
+	money_row.add_child(_reroll_button)
+	var back: Button = _big_button("돌아가기", UiConfig.COLOR_BACK)
+	back.custom_minimum_size = Vector2(0, 84)
+	back.add_theme_font_size_override("font_size", 24)
+	back.pressed.connect(func() -> void:
+		_cancel_buy_mode()
+		back_requested.emit())
+	side.add_child(back)
+
+	# 오른쪽: 붉은 테두리 진열대 (2줄) + 아래 내 주사위 바
+	var right: VBoxContainer = VBoxContainer.new()
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right.add_theme_constant_override("separation", 10)
+	main.add_child(right)
+	var frame: PanelContainer = PanelContainer.new()
+	frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var frame_style: StyleBoxFlat = StyleBoxFlat.new()
+	frame_style.bg_color = Color(0.07, 0.1, 0.1, 0.75)
+	frame_style.border_color = UiConfig.SHOP_FRAME_COLOR
+	frame_style.set_border_width_all(4)
+	frame_style.set_corner_radius_all(14)
+	frame_style.content_margin_left = 16
+	frame_style.content_margin_right = 16
+	frame_style.content_margin_top = 8
+	frame_style.content_margin_bottom = 12
+	frame.add_theme_stylebox_override("panel", frame_style)
+	right.add_child(frame)
 	var rows: VBoxContainer = VBoxContainer.new()
 	rows.add_theme_constant_override("separation", UiConfig.SHOP_ROW_GAP)
-	shelf.add_child(rows)
+	frame.add_child(rows)
 	_row1 = HBoxContainer.new()
+	_row1.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_row1.add_theme_constant_override("separation", UiConfig.SHOP_COLUMN_GAP)
 	rows.add_child(_row1)
 	_row2 = HBoxContainer.new()
+	_row2.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_row2.add_theme_constant_override("separation", UiConfig.SHOP_COLUMN_GAP)
 	rows.add_child(_row2)
-
-	_message = UiKit.label("", 15, UiConfig.COLOR_ACCENT)
-	_message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	main.add_child(_message)
-	var spacer: Control = Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	main.add_child(spacer)
-
-	# 하단: 판매·리롤 | 내 주사위 바 | 돌아가기
-	var bottom: HBoxContainer = HBoxContainer.new()
-	bottom.add_theme_constant_override("separation", 12)
-	main.add_child(bottom)
-	var left_buttons: VBoxContainer = VBoxContainer.new()
-	left_buttons.alignment = BoxContainer.ALIGNMENT_END
-	bottom.add_child(left_buttons)
-	_sell_button = _big_button("판매", UiConfig.COLOR_SELL)
-	_sell_button.pressed.connect(_on_sell_pressed)
-	left_buttons.add_child(_sell_button)
-	_reroll_button = _big_button("리롤", UiConfig.COLOR_REROLL)
-	_reroll_button.pressed.connect(func() -> void: _show_message(_result_text(session.shop.reroll(), "새 상품이 진열되었습니다")))
-	left_buttons.add_child(_reroll_button)
 
 	var bar_panel: PanelContainer = PanelContainer.new()
 	var bar_style: StyleBoxFlat = StyleBoxFlat.new()
 	bar_style.bg_color = UiConfig.COLOR_BAR_BG
 	bar_style.set_content_margin_all(8)
-	bar_style.set_corner_radius_all(4)
+	bar_style.set_corner_radius_all(10)
 	bar_panel.add_theme_stylebox_override("panel", bar_style)
-	bar_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bottom.add_child(bar_panel)
+	right.add_child(bar_panel)
 	_dice_bar = DiceBar.new()
 	_dice_bar.set("session", session)
 	_dice_bar.set("tooltip", tooltip)
@@ -103,13 +146,6 @@ func _ready() -> void:
 	_dice_bar.connect("slot_target_chosen", _on_slot_target_chosen)
 	_dice_bar.connect("dice_target_chosen", _on_dice_target_chosen)
 	bar_panel.add_child(_dice_bar)
-
-	var back: Button = _big_button("돌아가기", UiConfig.COLOR_BACK)
-	back.custom_minimum_size = Vector2(150, 110)
-	back.pressed.connect(func() -> void:
-		_cancel_buy_mode()
-		back_requested.emit())
-	bottom.add_child(back)
 
 	_pick_overlay = DicePickOverlay.new()
 	add_child(_pick_overlay)
@@ -151,14 +187,16 @@ func refresh() -> void:
 
 func _refresh() -> void:
 	var shop: ShopState = session.shop
-	UiKit.clear(_fixed_col)
-	_fixed_col.add_child(_offer_card(shop.food))
-	_fixed_col.add_child(_offer_card(shop.wall))
+	# 각 줄 첫 칸은 상시 상품(식량·성벽), 조금 띄우고 나머지
 	UiKit.clear(_row1)
+	_row1.add_child(_offer_card(shop.food))
+	_row1.add_child(_fixed_gap())
 	for o: ShopOffer in shop.dice_offers:
 		_row1.add_child(_offer_card(o))
 	_row1.add_child(_offer_card(shop.bag))
 	UiKit.clear(_row2)
+	_row2.add_child(_offer_card(shop.wall))
+	_row2.add_child(_fixed_gap())
 	for o: ShopOffer in shop.special_offers:
 		_row2.add_child(_offer_card(o))
 	for o: ShopOffer in shop.enchant_offers:
@@ -185,50 +223,121 @@ func _refresh_buttons() -> void:
 
 # --- 상품 카드 --------------------------------------------------------------
 
+## 상품 카드: 위에 가격표가 걸리고, 아래 진열 카드(종류별 색 띠 + 큰 아이콘 + 이름)
 func _offer_card(offer: ShopOffer) -> Control:
+	var holder: VBoxContainer = VBoxContainer.new()
+	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	holder.add_theme_constant_override("separation", -10)
+	# 가격표 자리 (카드 위로 살짝 걸침)
+	var tag_row: CenterContainer = CenterContainer.new()
+	tag_row.custom_minimum_size = Vector2(0, UiConfig.SHOP_TAG_SIZE.y + 4)
+	tag_row.z_index = 1
+	tag_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(tag_row)
+
 	var card: PanelContainer = PanelContainer.new()
 	card.custom_minimum_size = UiConfig.SHOP_CARD_SIZE
+	card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var accent: Color = _offer_color(offer)
 	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = Color(0, 0, 0, 0.18)
-	style.set_corner_radius_all(8)
-	style.set_content_margin_all(4)
+	style.bg_color = UiConfig.SHOP_CARD_BG
+	style.set_corner_radius_all(12)
+	style.content_margin_top = 16
+	style.content_margin_bottom = 6
+	style.content_margin_left = 6
+	style.content_margin_right = 6
+	style.border_color = accent
+	style.set_border_width_all(2)
+	style.border_width_top = 6
+	style.shadow_color = Color(0, 0, 0, 0.4)
+	style.shadow_size = 4
+	style.shadow_offset = Vector2(0, 4)
 	if offer != null and offer == _pending_offer:
 		style.border_color = UiConfig.COLOR_TARGET
-		style.set_border_width_all(3)
+		style.set_border_width_all(4)
 	card.add_theme_stylebox_override("panel", style)
+	holder.add_child(card)
 	var box: VBoxContainer = VBoxContainer.new()
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_theme_constant_override("separation", 2)
+	box.add_theme_constant_override("separation", 6)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(box)
 	if offer == null:
-		var done: Label = UiKit.label("가방\n최고 등급", 13, UiConfig.COLOR_DIM)
+		var done: Label = UiKit.label("가방\n최고 등급", 15, UiConfig.COLOR_DIM)
 		done.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(done)
-		return card
+		return holder
 
-	var price_text: String = "준비 중" if offer.is_locked() else ("판매됨" if offer.sold else "%s원" % NumberFormatter.format_num(offer.price))
-	var price: Label = UiKit.label(price_text, 15, Color("ffe08a") if offer.is_available() else UiConfig.COLOR_DIM)
-	price.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(price)
+	var tag: Control = PriceTag.new()
+	var tag_state: int = PriceTag.TagState.LOCKED if offer.is_locked() else (PriceTag.TagState.SOLD if offer.sold else PriceTag.TagState.ON_SALE)
+	tag.call("setup", "준비 중" if offer.is_locked() else ("판매됨" if offer.sold else "%s원" % NumberFormatter.format_num(offer.price)), tag_state)
+	tag_row.add_child(tag)
 	var icon: Control = ItemIcon.new()
 	icon.custom_minimum_size = UiConfig.SHOP_ICON_SIZE
 	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_setup_icon(icon, offer)
 	box.add_child(icon)
+	var title_bg: PanelContainer = UiKit.panel(Color(0, 0, 0, 0.35))
+	(title_bg.get_theme_stylebox("panel") as StyleBoxFlat).set_content_margin_all(3)
+	title_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var title: Label = UiKit.label(offer.title, 14)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(title)
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title_bg.add_child(title)
+	box.add_child(title_bg)
 	if not offer.is_available():
-		card.modulate = Color(1, 1, 1, 0.45)
+		holder.modulate = Color(1, 1, 1, 0.45)
 	else:
 		card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		card.gui_input.connect(func(e: InputEvent) -> void:
 			if e is InputEventMouseButton and (e as InputEventMouseButton).pressed and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 				_on_offer_pressed(offer))
+		# 마우스를 올리면 살짝 떠오름
+		card.mouse_entered.connect(func() -> void: _hover_card(holder, true))
+		card.mouse_exited.connect(func() -> void: _hover_card(holder, false))
 	if tooltip != null:
 		tooltip.call("attach", card, func() -> String: return _offer_tooltip(offer))
-	return card
+	return holder
+
+
+func _hover_card(holder: Control, on: bool) -> void:
+	if not is_instance_valid(holder):
+		return
+	holder.pivot_offset = Vector2(holder.size.x * 0.5, holder.size.y)
+	var tw: Tween = holder.create_tween()
+	tw.tween_property(holder, "scale", Vector2.ONE * (1.04 if on else 1.0), 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+
+## 상품 종류별 카드 윗띠 색
+func _offer_color(offer: ShopOffer) -> Color:
+	if offer == null:
+		return Color("4a5a58")
+	match offer.kind:
+		ShopOffer.Kind.FOOD:
+			return Color("c8964f")
+		ShopOffer.Kind.WALL:
+			return Color("9aa3a8")
+		ShopOffer.Kind.DICE:
+			return Color("e9e4d4")
+		ShopOffer.Kind.BAG:
+			return Color("a0683a")
+		ShopOffer.Kind.TRAIT:
+			return offer.trait_data.color
+		ShopOffer.Kind.TAROT:
+			return Color("9b7be0")
+		ShopOffer.Kind.ITEM:
+			return UiConfig.rarity_color(int(offer.item_data.rank))
+		ShopOffer.Kind.ENCHANT:
+			return UiConfig.rarity_color(int(offer.enchant_data.rarity))
+	return Color("4a5a58")
+
+
+func _fixed_gap() -> Control:
+	var c: Control = Control.new()
+	c.custom_minimum_size = Vector2(maxi(0, UiConfig.SHOP_FIXED_COLUMN_GAP - UiConfig.SHOP_COLUMN_GAP * 2), 0)
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return c
 
 
 func _setup_icon(icon: Control, offer: ShopOffer) -> void:

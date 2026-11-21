@@ -15,10 +15,23 @@ var _rows: VBoxContainer
 var _title: Label
 var _sub: Label
 var _total: Label
+var _style: StyleBoxFlat
+
+
+## 기록을 재촉할 때: 그림자 대신 금빛 테두리·후광
+func set_glow(on: bool) -> void:
+	if _style == null:
+		return
+	_style.shadow_color = Color(1.0, 0.82, 0.25, 0.85) if on else Color(0, 0, 0, 0.35)
+	_style.shadow_size = 16 if on else 6
+	_style.shadow_offset = Vector2.ZERO if on else Vector2(3, 4)
+	_style.border_color = Color("f2c14e")
+	_style.set_border_width_all(3 if on else 0)
 
 
 func _ready() -> void:
 	var style: StyleBoxFlat = StyleBoxFlat.new()
+	_style = style
 	style.bg_color = PAPER
 	style.set_corner_radius_all(4)
 	style.set_content_margin_all(8)

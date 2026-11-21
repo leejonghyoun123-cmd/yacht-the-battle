@@ -1,8 +1,9 @@
 extends Control
 ## 유닛배치 화면 (코드상 barracks). 뒤쪽 BattleView의 유닛배치 칸을 직접 클릭해 배치한다. 배치 예시 이미지 기준:
-##   위 가운데: [전투 시작 ▶] (준비 중에는 [주사위 테이블로 ▶])     위 오른쪽: [상점] + 적 정찰
+##   위 오른쪽: [상점] + 적 정찰
 ##   왼쪽 가운데: 선택한 주사위를 크게 + [배치 초기화]
-##   아래 가운데: 병과 선택 → 내 패(아직 배치 안 한 주사위)  — 마우스 동선을 아래쪽에 모은다
+##   아래 가운데: 내 패(아직 배치 안 한 주사위)   오른쪽 아래: [전투 시작 ▶] (준비 중에는 [주사위 테이블로 ▶])
+##   병과 선택: 빈 칸을 누르면 칸 둘레로 병과 버튼이 피어난다. 유닛이 있는 칸은 그 병과로 바로 투입.
 ## 연출: 패에서 주사위를 고르면 왼쪽으로 미끄러지며 커지고, 칸에 놓으면 작아지며 칸으로 날아가 팡 터지며 유닛으로 흩어진다.
 ## 준비 중(배치 전): 중첩칸 클릭 → 판매 확인. 배치 중: 다른 병과 칸이면 "기존 유닛 자동 판매" 확인 후 덮어쓰기.
 
@@ -21,13 +22,20 @@ const PLACE_ARC_HEIGHT: float = 90.0
 const BURST_FRAGMENTS: int = 10
 const BURST_TIME: float = 0.45
 const BIG_DIE_SIZE: Vector2 = Vector2(130, 130)
+const ACTION_BUTTON_SIZE: Vector2 = Vector2(230, 72)
+## 빈 칸 클릭 시 칸 둘레로 피어나는 병과 버튼 (반지름·버튼 크기·피어나는 시간)
+const RING_RADIUS: float = 96.0
+const RING_BUTTON_SIZE: Vector2 = Vector2(78, 50)
+const RING_OPEN_TIME: float = 0.24
+const RING_STAGGER: float = 0.025
 
 var session: GameSession
 var tooltip: Node
 ## 유닛배치장을 그리는 BattleView (칸 클릭·표시·소환 연출)
 var view: Node2D
 
-## 배치는 [패에서 주사위 선택 → 병과 선택 → 칸 클릭]을 한 번씩. 배치하면 선택이 풀린다.
+## 배치: 패에서 주사위 선택 → 칸 클릭. 유닛이 있는 칸은 그 병과로 바로 투입,
+## 빈 칸은 칸 둘레에 병과 버튼이 피어나 고른다. 배치하면 선택이 풀린다.
 var selected_summon: int = -1
 var selected_unit: StringName = &""
 
@@ -36,8 +44,8 @@ var _hint_slot: VBoxContainer
 var _left_box: VBoxContainer
 var _reset_button: Button
 var _message: Label
-var _units_box: VBoxContainer
-var _units_row: HBoxContainer
+## 병과 선택 링 (칸을 기준으로 둘레에 버튼이 피어남, 바깥 클릭 시 닫힘)
+var _ring: Control = null
 var _hand_panel: PanelContainer
 var _hand_row: HBoxContainer
 var _bar_panel: PanelContainer
@@ -70,14 +78,10 @@ func _ready() -> void:
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.add_child(v)
 
-	# 위: 가운데 행동 버튼 / 오른쪽 상점 + 적 정찰
+	# 위: 오른쪽 상점 + 적 정찰 (행동 버튼은 오른쪽 아래)
 	var top: HBoxContainer = HBoxContainer.new()
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(top)
-	top.add_child(_expander())
-	_action_button = _big_button("전투 시작 ▶", 20, Vector2(200, 46))
-	_action_button.pressed.connect(_on_action_pressed)
-	top.add_child(_action_button)
 	top.add_child(_expander())
 	var right: HBoxContainer = HBoxContainer.new()
 	right.add_theme_constant_override("separation", 8)
@@ -128,27 +132,31 @@ func _ready() -> void:
 	gear_panel.add_child(_gear_box)
 	middle.add_child(gear_panel)
 
-	# 아래: 병과 선택 → 내 패 (배치 중) / 내 주사위 바 (준비 중)
+	# 아래: 가운데 내 패 (배치 중) / 내 주사위 바 (준비 중), 오른쪽 아래 [전투 시작 ▶]
+	# 왼쪽에 버튼과 같은 폭의 빈칸을 두어 패가 화면 가운데에 오게 한다
+	var bottom_row: HBoxContainer = HBoxContainer.new()
+	bottom_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(bottom_row)
+	var balance: Control = Control.new()
+	balance.custom_minimum_size = Vector2(ACTION_BUTTON_SIZE.x, 0)
+	balance.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bottom_row.add_child(balance)
+	bottom_row.add_child(_expander())
 	var bottom: VBoxContainer = VBoxContainer.new()
 	bottom.alignment = BoxContainer.ALIGNMENT_CENTER
-	bottom.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	bottom.add_theme_constant_override("separation", 6)
 	bottom.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(bottom)
-	_units_box = VBoxContainer.new()
-	_units_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var units_title: Label = UiKit.label("이 주사위로 배치할 병과", 16, UiConfig.COLOR_ACCENT)
-	units_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_units_box.add_child(units_title)
-	_units_row = HBoxContainer.new()
-	_units_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	_units_row.add_theme_constant_override("separation", 6)
-	_units_box.add_child(_units_row)
-	bottom.add_child(_units_box)
+	bottom_row.add_child(bottom)
+	bottom_row.add_child(_expander())
+	_action_button = _big_button("전투 시작 ▶", 24, ACTION_BUTTON_SIZE)
+	_action_button.size_flags_vertical = Control.SIZE_SHRINK_END
+	UiKit.color_button(_action_button, Color("2fae6b"))
+	_action_button.pressed.connect(_on_action_pressed)
+	bottom_row.add_child(_action_button)
 	_hand_panel = UiKit.panel(Color(0.1, 0.11, 0.15, 0.92), UiConfig.COLOR_ACCENT)
 	var hand_box: VBoxContainer = VBoxContainer.new()
 	_hand_panel.add_child(hand_box)
-	hand_box.add_child(UiKit.label("내 패 — 배치할 주사위를 고르세요", 13, UiConfig.COLOR_ACCENT))
+	hand_box.add_child(UiKit.label("내 패 — 주사위를 고르고 칸을 누르세요 (빈 칸은 병과 선택 · 우클릭은 병과 교체)", 13, UiConfig.COLOR_ACCENT))
 	_hand_row = HBoxContainer.new()
 	_hand_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	_hand_row.add_theme_constant_override("separation", 14)
@@ -174,6 +182,7 @@ func _ready() -> void:
 	if view != null:
 		view.connect("barracks_cell_clicked", _on_cell_clicked)
 		view.connect("barracks_cell_hovered", _on_cell_hovered)
+		view.connect("barracks_cell_right_clicked", _on_cell_right_clicked)
 	session.board.board_changed.connect(_queue_refresh)
 	session.changed.connect(_queue_refresh)
 	session.deck.deck_changed.connect(func() -> void:
@@ -207,10 +216,10 @@ func refresh() -> void:
 	_reset_button.visible = placing
 	_hand_panel.visible = placing
 	_bar_panel.visible = not placing
-	_units_box.visible = placing and selected_summon >= 0
+	if selected_summon < 0:
+		_close_unit_ring()
 	if placing:
 		_build_selected_panel()
-		_build_units()
 		_build_hand()
 	else:
 		_build_prep_panel()
@@ -247,7 +256,7 @@ func _build_prep_panel() -> void:
 func _build_selected_panel() -> void:
 	UiKit.clear(_left_box)
 	_big_icon = null
-	var title: Label = UiKit.label("배치: 패에서 주사위 → 병과 → 칸 클릭", 14, UiConfig.COLOR_ACCENT)
+	var title: Label = UiKit.label("배치: 패에서 주사위 → 칸 클릭", 14, UiConfig.COLOR_ACCENT)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_left_box.add_child(title)
 	if selected_summon < 0:
@@ -279,6 +288,9 @@ func _build_selected_panel() -> void:
 		var reason: Label = UiKit.label("%s명 → %s" % [NumberFormatter.format_num(s["base"]), s["reason"]], 11, Color("ff9a9a"))
 		reason.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_left_box.add_child(reason)
+	var how: Label = UiKit.label("유닛이 있는 칸: 그 병과로 바로 투입\n빈 칸: 둘레에 뜨는 병과 버튼으로 선택\n우클릭: 다른 병과로 교체", 11, Color.WHITE)
+	how.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_left_box.add_child(how)
 	var cancel: Button = UiKit.button("선택 취소 (패로 되돌리기)", 12)
 	cancel.pressed.connect(func() -> void:
 		selected_summon = -1
@@ -287,27 +299,104 @@ func _build_selected_panel() -> void:
 	_left_box.add_child(cancel)
 
 
-## 아래: 병과 선택 (일반 주사위는 거인·킹 불가 — 포커카드 전용)
-func _build_units() -> void:
-	UiKit.clear(_units_row)
+## 병과 선택 링: 클릭한 칸을 중심으로 병과 버튼이 둘레(8방향 간격)로 피어난다.
+## 일반 주사위는 거인·킹 불가 — 포커카드 전용. exclude = 교체할 때 지금 칸의 병과는 빼기.
+func _open_unit_ring(cell_index: int, exclude: StringName = &"") -> void:
+	_close_unit_ring()
+	var ids: Array[StringName] = []
 	for id: StringName in UnitCatalog.ALL_IDS:
-		if not session.can_use_unit(selected_summon, id):
-			continue
-		var data: UnitData = UnitCatalog.get_unit(id)
-		var ub: Button = UiKit.button(data.display_name, 20)
-		ub.toggle_mode = true
-		ub.button_pressed = id == selected_unit
-		ub.custom_minimum_size = Vector2(76, 44)
-		ub.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		ub.add_theme_color_override("font_color", data.color)
-		ub.add_theme_color_override("font_pressed_color", Color.WHITE)
-		ub.pressed.connect(func() -> void:
-			selected_unit = id
-			_message.text = "병과 선택됨 → 유닛배치 칸을 클릭하세요"
-			refresh.call_deferred())
+		if id != exclude and session.can_use_unit(selected_summon, id):
+			ids.append(id)
+	if ids.is_empty() or view == null:
+		_message.text = "이 주사위로 놓을 수 있는 병과가 없습니다."
+		return
+	# 링 전체가 화면 안에 들어오도록 중심을 안쪽으로 당긴다
+	var reach: Vector2 = Vector2(RING_RADIUS, RING_RADIUS) + RING_BUTTON_SIZE * 0.5 + Vector2(6, 6)
+	var center: Vector2 = (view.call("cell_screen_position", cell_index) as Vector2) - global_position
+	center = center.clamp(reach + Vector2(0, UiConfig.TOP_BAR_HEIGHT), size - reach)
+	_ring = Control.new()
+	_ring.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_ring.mouse_filter = Control.MOUSE_FILTER_STOP
+	_ring.z_index = 30
+	# 바깥(빈 곳)을 누르면 닫힘
+	_ring.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and (e as InputEventMouseButton).pressed:
+			_close_unit_ring())
+	add_child(_ring)
+	var halo: Control = Control.new()
+	halo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	halo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	halo.draw.connect(func() -> void:
+		halo.draw_circle(center, RING_RADIUS + 44.0, Color(0.05, 0.06, 0.09, 0.55))
+		halo.draw_arc(center, RING_RADIUS, 0.0, TAU, 48, Color(1, 0.85, 0.4, 0.35), 2.0)
+		halo.draw_circle(center, 6.0, UiConfig.COLOR_ACCENT))
+	_ring.add_child(halo)
+	halo.modulate.a = 0.0
+	_ring.create_tween().tween_property(halo, "modulate:a", 1.0, RING_OPEN_TIME * 0.7)
+	# 둘레에 고르게 (8개면 정확히 8방향). 위쪽부터 시계 방향.
+	for k: int in range(ids.size()):
+		var data: UnitData = UnitCatalog.get_unit(ids[k])
+		var unit: StringName = ids[k]
+		var ang: float = -PI * 0.5 + TAU * float(k) / float(ids.size())
+		var target: Vector2 = center + Vector2(cos(ang), sin(ang)) * RING_RADIUS - RING_BUTTON_SIZE * 0.5
+		var b: Button = UiKit.button(data.display_name, 17)
+		b.custom_minimum_size = RING_BUTTON_SIZE
+		b.size = RING_BUTTON_SIZE
+		b.pivot_offset = RING_BUTTON_SIZE * 0.5
+		b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		for state: String in ["normal", "hover", "pressed"]:
+			var sb: StyleBoxFlat = StyleBoxFlat.new()
+			sb.bg_color = Color(0.1, 0.11, 0.15, 0.95) if state == "normal" else (data.color.darkened(0.35) if state == "hover" else data.color.darkened(0.55))
+			sb.border_color = data.color
+			sb.set_border_width_all(3)
+			sb.set_corner_radius_all(int(RING_BUTTON_SIZE.y * 0.5))
+			b.add_theme_stylebox_override(state, sb)
+		b.add_theme_color_override("font_color", data.color.lightened(0.3))
+		b.add_theme_color_override("font_hover_color", Color.WHITE)
+		b.pressed.connect(func() -> void:
+			_close_unit_ring()
+			_place_with_unit(cell_index, unit))
 		if tooltip != null:
-			tooltip.call("attach", ub, func() -> String: return _unit_tooltip(data))
-		_units_row.add_child(ub)
+			tooltip.call("attach", b, func() -> String: return _unit_tooltip(data))
+		_ring.add_child(b)
+		# 칸 중심에서 작게 시작 → 제자리로 튀어나오며 커짐
+		b.position = center - RING_BUTTON_SIZE * 0.5
+		b.scale = Vector2.ONE * 0.2
+		b.modulate.a = 0.0
+		var tw: Tween = b.create_tween().set_parallel(true)
+		var delay: float = RING_STAGGER * float(k)
+		tw.tween_property(b, "position", target, RING_OPEN_TIME).set_delay(delay).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_property(b, "scale", Vector2.ONE, RING_OPEN_TIME).set_delay(delay).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_property(b, "modulate:a", 1.0, RING_OPEN_TIME * 0.6).set_delay(delay)
+
+
+func _close_unit_ring() -> void:
+	if _ring != null and is_instance_valid(_ring):
+		_ring.queue_free()
+	_ring = null
+
+
+## 링에서 병과를 고름 → 놓을 수 있으면 바로 날아가고, 다른 병과 칸이면 자동 판매 확인
+func _place_with_unit(cell_index: int, unit: StringName) -> void:
+	if selected_summon < 0:
+		return
+	selected_unit = unit
+	var summon: int = selected_summon
+	if session.can_place(summon, unit, cell_index):
+		_fly_and_place(summon, unit, cell_index, false)
+		return
+	var info: Dictionary = session.get_replace_info(cell_index, unit)
+	if not info["needed"]:
+		_message.text = "이 칸에는 %s을(를) 놓을 수 없습니다." % UnitCatalog.get_unit(unit).display_name
+		return
+	var old_name: String = UnitCatalog.get_unit(info["old_unit"]).display_name
+	var detail: String = ""
+	if info["sell_count"] > 0:
+		detail += "\n기존 %s %d명 판매 +%d원" % [old_name, info["sell_count"], info["sell_gold"]]
+	if not (info["returned"] as Array).is_empty():
+		detail += "\n이번 라운드에 놓은 주사위 %d개는 다시 배치할 수 있게 되돌아옵니다." % (info["returned"] as Array).size()
+	_ask("이곳에 배치할시 해당칸의 기존유닛이 자동으로 판매됩니다.\n괜찮으십니까?" + detail, func() -> void:
+		_fly_and_place(summon, unit, cell_index, true))
 
 
 ## 내 패: 배치하지 않았고 지금 선택하지 않은 주사위
@@ -353,6 +442,7 @@ func _select_summon(index: int) -> void:
 	var from_rect: Rect2 = Rect2()
 	if _hand_icons.has(index):
 		from_rect = (_hand_icons[index] as Control).get_global_rect()
+	_close_unit_ring()
 	selected_summon = index
 	selected_unit = &""
 	_message.text = ""
@@ -481,15 +571,15 @@ func _push_overlay() -> void:
 		return
 	var labels: Array[String] = []
 	var marks: Array[int] = []
-	# 주사위와 병과를 둘 다 골라야 칸을 강조한다
-	var placing: bool = session.phase == GameSession.Phase.PLACEMENT and selected_summon >= 0 and selected_unit != &""
+	# 주사위를 고르면: 빈 칸·바로 투입 가능한 칸은 초록, 교체가 필요한 칸은 경고
+	var placing: bool = session.phase == GameSession.Phase.PLACEMENT and selected_summon >= 0
 	for cell: CellState in session.board.cells:
 		labels.append(_cell_label(cell))
 		var mark: int = 0
 		if placing:
-			if session.can_place(selected_summon, selected_unit, cell.index):
+			if cell.is_empty() or session.can_place(selected_summon, cell.unit_id, cell.index):
 				mark = 1
-			elif not cell.is_empty():
+			else:
 				mark = 2
 		marks.append(mark)
 	view.call("set_barracks_overlay", labels, marks)
@@ -527,10 +617,13 @@ func _on_cell_hovered(cell_index: int) -> void:
 	if _tarot_pending != null:
 		body += "\n▶ 클릭: %s 부여" % _tarot_pending.display_name
 	var extra: String = ""
-	if session.phase == GameSession.Phase.PLACEMENT and selected_unit != &"":
-		var info: Dictionary = session.get_replace_info(cell_index, selected_unit)
-		if info["needed"]:
-			extra = "\n⚠ 배치하면 기존 유닛이 자동 판매됩니다"
+	if session.phase == GameSession.Phase.PLACEMENT and selected_summon >= 0:
+		if cell.is_empty():
+			extra = "\n클릭: 병과 고르기"
+		elif session.can_place(selected_summon, cell.unit_id, cell_index):
+			extra = "\n클릭: %s에 바로 투입 · 우클릭: 다른 병과로 교체" % UnitCatalog.get_unit(cell.unit_id).display_name
+		else:
+			extra = "\n⚠ 클릭: 다른 병과로 교체 (기존 유닛 자동 판매)"
 	elif cell.is_stack and not cell.is_empty():
 		extra = "\n클릭: 판매 +%d원" % session.board.get_stack_sell_price(cell_index)
 	tooltip.call("show_text", "%s · %s\n%s%s" % [row_name, kind, body, extra])
@@ -561,29 +654,29 @@ func _on_cell_clicked(cell_index: int) -> void:
 		_try_sell(cell_index)
 
 
+## 주사위를 고른 채 칸 클릭: 유닛이 있으면 그 병과로 바로 투입, 비어 있으면 병과 링
 func _try_place(cell_index: int) -> void:
 	if selected_summon < 0:
 		_message.text = "먼저 아래 '내 패'에서 주사위를 고르세요." if session.next_unplaced_index() >= 0 else "모든 주사위를 배치했습니다. [전투 시작]을 누르세요."
 		return
-	if selected_unit == &"":
-		_message.text = "이 주사위로 배치할 병과를 먼저 고르세요."
+	var cell: CellState = session.board.cells[cell_index]
+	if cell.is_empty():
+		_open_unit_ring(cell_index)
 		return
-	var summon: int = selected_summon
-	var unit: StringName = selected_unit
-	if session.can_place(summon, unit, cell_index):
-		_fly_and_place(summon, unit, cell_index, false)
+	if session.can_place(selected_summon, cell.unit_id, cell_index):
+		_place_with_unit(cell_index, cell.unit_id)
 		return
-	var info: Dictionary = session.get_replace_info(cell_index, unit)
-	if not info["needed"]:
+	# 이 주사위로는 이 칸 병과를 못 넣음 (거인·킹 등) → 바꿀 병과 고르기
+	_message.text = "이 주사위로는 %s 칸에 넣을 수 없습니다.\n다른 병과를 고르면 기존 유닛이 판매됩니다." % UnitCatalog.get_unit(cell.unit_id).display_name
+	_open_unit_ring(cell_index, cell.unit_id)
+
+
+## 우클릭: 유닛이 있는 칸을 다른 병과로 교체 (기존 유닛 자동 판매 확인)
+func _on_cell_right_clicked(cell_index: int) -> void:
+	if not visible or _animating or session.phase != GameSession.Phase.PLACEMENT or selected_summon < 0:
 		return
-	var old_name: String = UnitCatalog.get_unit(info["old_unit"]).display_name
-	var detail: String = ""
-	if info["sell_count"] > 0:
-		detail += "\n기존 %s %d명 판매 +%d원" % [old_name, info["sell_count"], info["sell_gold"]]
-	if not (info["returned"] as Array).is_empty():
-		detail += "\n이번 라운드에 놓은 주사위 %d개는 다시 배치할 수 있게 되돌아옵니다." % (info["returned"] as Array).size()
-	_ask("이곳에 배치할시 해당칸의 기존유닛이 자동으로 판매됩니다.\n괜찮으십니까?" + detail, func() -> void:
-		_fly_and_place(summon, unit, cell_index, true))
+	var cell: CellState = session.board.cells[cell_index]
+	_open_unit_ring(cell_index, cell.unit_id if not cell.is_empty() else &"")
 
 
 func _try_sell(cell_index: int) -> void:

@@ -127,6 +127,13 @@ func _focus_barracks() -> void:
 	_camera.zoom = Vector2.ONE * BARRACKS_ZOOM
 
 
+## 화면 전환 슬라이드: 연병장 그림을 화면 픽셀 기준으로 옆으로 민다 (0 = 제자리)
+func set_screen_shift(pixels: Vector2) -> void:
+	if _camera == null:
+		return
+	_camera.offset = -pixels / maxf(0.01, _camera.zoom.x)
+
+
 func set_speed(value: int) -> void:
 	speed = value
 	for b: Button in _speed_buttons:
@@ -459,6 +466,8 @@ func _draw() -> void:
 
 signal barracks_cell_clicked(cell_index: int)
 signal barracks_cell_hovered(cell_index: int)
+## 우클릭 (유닛배치: 다른 병과로 교체할 때)
+signal barracks_cell_right_clicked(cell_index: int)
 
 enum CellMark { NONE, PLACEABLE, REPLACE, BLOCKED }
 
@@ -554,6 +563,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			var cell: int = barracks_cell_at(_event_world_pos(mb))
 			if cell >= 0:
 				barracks_cell_clicked.emit(cell)
+				get_viewport().set_input_as_handled()
+		elif mb.pressed and mb.button_index == MOUSE_BUTTON_RIGHT:
+			var rcell: int = barracks_cell_at(_event_world_pos(mb))
+			if rcell >= 0:
+				barracks_cell_right_clicked.emit(rcell)
 				get_viewport().set_input_as_handled()
 
 

@@ -26,6 +26,22 @@ static func button(text: String, font_size: int = 14) -> Button:
 	return b
 
 
+## 단색 버튼 (보통/호버/누름/비활성 색을 한 색에서 만든다)
+static func color_button(b: Button, color: Color, radius: int = 8) -> void:
+	for state: String in ["normal", "hover", "pressed", "disabled"]:
+		var sb: StyleBoxFlat = StyleBoxFlat.new()
+		sb.bg_color = color
+		if state == "hover":
+			sb.bg_color = color.lightened(0.15)
+		elif state == "pressed":
+			sb.bg_color = color.darkened(0.2)
+		elif state == "disabled":
+			sb.bg_color = color.darkened(0.5)
+		sb.set_corner_radius_all(radius)
+		sb.set_content_margin_all(6)
+		b.add_theme_stylebox_override(state, sb)
+
+
 static func panel(bg: Color = COLOR_PANEL, border: Color = Color.TRANSPARENT) -> PanelContainer:
 	var p: PanelContainer = PanelContainer.new()
 	var style: StyleBoxFlat = StyleBoxFlat.new()
