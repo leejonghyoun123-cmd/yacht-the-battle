@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="UnitData" format=3]
+
+[ext_resource type="Script" path="res://core/data/unit_data.gd" id="1_w5rx5"]
+
+[resource]
+script = ExtResource("1_w5rx5")
+id = &"sword"
+display_name = "소드"
+color = Color(0.8509804, 0.8666667, 0.9098039, 1)

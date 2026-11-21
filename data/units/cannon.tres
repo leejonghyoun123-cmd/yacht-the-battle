@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="UnitData" format=3]
+
+[ext_resource type="Script" path="res://core/data/unit_data.gd" id="1_wu0tw"]
+
+[resource]
+script = ExtResource("1_wu0tw")
+id = &"cannon"
+display_name = "캐논"
+role = 2
+color = Color(0.8784314, 0.53333336, 0.30980393, 1)
+max_hp = 70.0
+attack = 14.0
+attack_interval = 2.0
+attack_range = 200.0
+move_speed = 45.0
+splash_radius = 30.0

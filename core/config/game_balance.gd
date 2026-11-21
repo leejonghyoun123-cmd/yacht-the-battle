@@ -15,6 +15,16 @@ const WIN_BONUS: int = 50
 const CONSUMABLE_SALE_PER_UNIT: int = 5
 ## 패배 시 적 생존 환산 1명당 피해
 const DAMAGE_PER_ENEMY_UNIT: int = 1
+## 중첩칸(고정 유닛) 판매가 (총 누적 인원 1명당). 소비칸(5원)보다 낮게 둔다:
+## 중첩칸은 위험 없이 영구 누적되므로 같은 값이면 소비칸을 쓸 이유가 사라진다.
+const STACK_SELL_PER_UNIT: int = 2
+
+# --- 연승·연패 보상 (기획서 00 5장) ---
+## [연속 횟수, 보상] — 횟수 이상이면 해당 보상 (위에서부터 큰 값 우선)
+const WIN_STREAK_REWARDS: Array[Vector2i] = [Vector2i(5, 350), Vector2i(3, 200), Vector2i(2, 100)]
+const LOSS_STREAK_REWARDS: Array[Vector2i] = [Vector2i(5, 200), Vector2i(4, 150), Vector2i(3, 100), Vector2i(2, 50)]
+## 5연패 이상 시 무료 상점 리롤
+const LOSS_STREAK_FREE_REROLL: int = 5
 
 # --- 굴림 ---
 ## 첫 굴림 이후 가능한 재굴림 횟수 (기획서 "총 3회 재굴림")

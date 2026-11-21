@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="UnitData" format=3]
+
+[ext_resource type="Script" path="res://core/data/unit_data.gd" id="1_tclwn"]
+
+[resource]
+script = ExtResource("1_tclwn")
+id = &"bow"
+display_name = "보우"
+role = 2
+color = Color(0.56078434, 0.81960785, 0.41568628, 1)
+max_hp = 60.0
+attack = 7.0
+attack_interval = 0.625
+attack_range = 220.0
+move_speed = 55.0
