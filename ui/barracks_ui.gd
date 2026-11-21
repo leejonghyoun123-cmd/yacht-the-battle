@@ -14,7 +14,12 @@ const DiceBar: GDScript = preload("res://ui/widgets/dice_bar.gd")
 const ItemIcon: GDScript = preload("res://ui/widgets/item_icon.gd")
 
 const SELECT_SLIDE_TIME: float = 0.28
-const PLACE_FLY_TIME: float = 0.32
+const PLACE_FLY_TIME: float = 0.5
+## 배치 비행 포물선 기본 높이 (거리에 비례해 더 높아짐)
+const PLACE_ARC_HEIGHT: float = 90.0
+## 착지 시 터지는 조각 수와 흩어지는 시간
+const BURST_FRAGMENTS: int = 10
+const BURST_TIME: float = 0.45
 const BIG_DIE_SIZE: Vector2 = Vector2(130, 130)
 
 var session: GameSession
@@ -383,14 +388,66 @@ func _fly_and_place(summon: int, unit: StringName, cell_index: int, replace: boo
 	var target: Vector2 = view.call("cell_screen_position", cell_index)
 	var ghost: Control = _ghost(NumberFormatter.format_num(session.summons[summon]["value"]), from_rect)
 	_big_icon.modulate.a = 0.0
-	var end_size: Vector2 = Vector2(26, 26)
-	var tw: Tween = create_tween().set_parallel(true)
-	tw.tween_property(ghost, "position", target - global_position - end_size * 0.5, PLACE_FLY_TIME).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	tw.tween_property(ghost, "size", end_size, PLACE_FLY_TIME).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	tw.chain().tween_callback(func() -> void:
+	# 포물선 비행: 시작 → 칸, 가운데가 위로 솟는 궤적 + 회전하며 작아짐
+	var start: Vector2 = from_rect.position - global_position
+	var start_size: Vector2 = from_rect.size
+	var end_size: Vector2 = Vector2(34, 34)
+	var end_pos: Vector2 = target - global_position - end_size * 0.5
+	var height: float = PLACE_ARC_HEIGHT + start.distance_to(end_pos) * 0.25
+	ghost.pivot_offset = start_size * 0.5
+	var unit_color: Color = UnitCatalog.get_unit(unit).color
+	var tw: Tween = create_tween()
+	tw.tween_method(func(t: float) -> void:
+		var sz: Vector2 = start_size.lerp(end_size, t)
+		ghost.size = sz
+		ghost.pivot_offset = sz * 0.5
+		ghost.position = start.lerp(end_pos, t) + Vector2(0.0, -height * 4.0 * t * (1.0 - t))
+		ghost.rotation = t * TAU * 0.75,
+		0.0, 1.0, PLACE_FLY_TIME).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_callback(func() -> void:
 		ghost.queue_free()
 		_animating = false
+		_burst_fragments(target - global_position, unit_color)
 		_do_place(summon, unit, cell_index, replace))
+
+
+## 착지 순간 터지며 조각이 사방으로 포물선을 그리며 흩어진다 (유닛이 칸 중앙에서 자리로 퍼지는 연출과 함께)
+func _burst_fragments(center: Vector2, color: Color) -> void:
+	var flash: ColorRect = ColorRect.new()
+	flash.color = Color(1.0, 0.95, 0.7, 0.9)
+	flash.size = Vector2(30, 30)
+	flash.pivot_offset = flash.size * 0.5
+	flash.position = center - flash.size * 0.5
+	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	flash.z_index = 21
+	add_child(flash)
+	var ft: Tween = create_tween().set_parallel(true)
+	ft.tween_property(flash, "scale", Vector2.ONE * 3.0, 0.22)
+	ft.tween_property(flash, "modulate:a", 0.0, 0.22)
+	ft.chain().tween_callback(flash.queue_free)
+	for i: int in range(BURST_FRAGMENTS):
+		var frag: ColorRect = ColorRect.new()
+		var s: float = 7.0 + float(i % 3) * 3.0
+		frag.size = Vector2(s, s)
+		frag.pivot_offset = frag.size * 0.5
+		frag.color = color if i % 2 == 0 else Color("fff6d8")
+		frag.position = center - frag.size * 0.5
+		frag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		frag.z_index = 21
+		add_child(frag)
+		# 아이소 바닥 느낌으로 옆으로 넓게, 위로 살짝 튀었다가 떨어진다
+		var ang: float = TAU * (float(i) + 0.3) / float(BURST_FRAGMENTS)
+		var dist: float = 45.0 + float((i * 37) % 30)
+		var land: Vector2 = center + Vector2(cos(ang) * dist, sin(ang) * dist * 0.5) - frag.size * 0.5
+		var from: Vector2 = frag.position
+		var hop: float = 26.0 + float((i * 13) % 18)
+		var t: Tween = create_tween()
+		t.tween_method(func(k: float) -> void:
+			frag.position = from.lerp(land, k) + Vector2(0.0, -hop * 4.0 * k * (1.0 - k))
+			frag.rotation = k * PI * 2.0,
+			0.0, 1.0, BURST_TIME).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		t.parallel().tween_property(frag, "modulate:a", 0.0, BURST_TIME).set_delay(BURST_TIME * 0.5)
+		t.tween_callback(frag.queue_free)
 
 
 func _do_place(summon: int, unit: StringName, cell_index: int, replace: bool) -> void:
