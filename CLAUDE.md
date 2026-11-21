@@ -42,4 +42,7 @@
 (한 줄씩 추가하고, 쌓이면 중복을 정리한다)
 - 새 class_name 스크립트를 추가하면 `--headless --path . --import`로 클래스 캐시를 갱신한 뒤 `--script` 테스트를 실행한다.
 - .tres 데이터는 손으로 쓰지 않고 `tools/generate_data.gd`(ResourceSaver)로 생성한다. 이미 있는 파일은 덮어쓰지 않는다.
-- 테스트: `godot --headless --path . --script res://tests/test_core_logic.gd` (실패 시 종료 코드 1).
+- 테스트: `godot --headless --path . --script res://tests/test_core_logic.gd`, `res://tests/test_round_flow.gd` (실패 시 종료 코드 1).
+- 프로토타입 UI는 노드를 스크립트 코드로 생성하고, 씬에는 루트 Control + 스크립트만 둔다 (인스펙터 연결 누락 방지).
+- UI 다시 그리기는 `call_deferred`로 미룬다. 버튼 시그널 처리 중에 그 버튼을 지우면 오류 위험.
+- 화면 확인: 창 모드(`--headless` 없이)로 SceneTree 러너를 실행해 `root.get_texture().get_image().save_png()`로 스크린샷을 찍는다.
