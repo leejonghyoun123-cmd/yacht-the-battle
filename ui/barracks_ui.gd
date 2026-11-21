@@ -109,9 +109,9 @@ func _build_prep_panel() -> void:
 		streak_text = "  ·  %d연승 중" % session.streak.win_streak
 	elif session.streak.loss_streak >= 2:
 		streak_text = "  ·  %d연패 중" % session.streak.loss_streak
-	_left_box.add_child(UiKit.label("연병장%s" % streak_text, 16, UiConfig.COLOR_ACCENT))
+	_left_box.add_child(UiKit.label("유닛배치%s" % streak_text, 16, UiConfig.COLOR_ACCENT))
 	var help: Label = UiKit.label(
-		"· 주사위 테이블에서 굴리고 얏츠판을 기록하면\n  이 연병장 칸을 눌러 유닛을 배치합니다.\n· 가운데 줄 = 중첩칸(누적), 양옆 = 소비칸\n· 중첩칸을 누르면 판매할 수 있습니다.", 13, Color.WHITE)
+		"· 주사위 테이블에서 굴리고 얏츠판을 기록하면\n  이 유닛배치 칸을 눌러 유닛을 배치합니다.\n· 가운데 줄 = 중첩칸(누적), 양옆 = 소비칸\n· 중첩칸을 누르면 판매할 수 있습니다.", 13, Color.WHITE)
 	_left_box.add_child(help)
 
 
@@ -119,7 +119,7 @@ func _build_placement_panel() -> void:
 	UiKit.clear(_left_box)
 	if selected_summon < 0 or selected_summon >= session.summons.size() or session.summons[selected_summon]["placed"]:
 		selected_summon = session.next_unplaced_index()
-	_left_box.add_child(UiKit.label("배치: 주사위 → 병과 → 연병장 칸 클릭", 15, UiConfig.COLOR_ACCENT))
+	_left_box.add_child(UiKit.label("배치: 주사위 → 병과 → 칸 클릭", 15, UiConfig.COLOR_ACCENT))
 	for i: int in range(session.summons.size()):
 		var s: Dictionary = session.summons[i]
 		var text: String = "주사위%d: %s명" % [i + 1, NumberFormatter.format_num(s["value"])]

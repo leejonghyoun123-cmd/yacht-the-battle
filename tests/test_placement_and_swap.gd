@@ -9,7 +9,7 @@ var _fail_count: int = 0
 func _initialize() -> void:
 	print("===== 배치 덮어쓰기 · 주사위 교체 테스트 =====")
 	_test_replace()
-	_test_cycle()
+	_test_pick_swap()
 	_test_swap_selected()
 	print("===== 결과: 통과 %d / 실패 %d =====" % [_pass_count, _fail_count])
 	quit(1 if _fail_count > 0 else 0)
@@ -56,8 +56,9 @@ func _test_replace() -> void:
 	_check(s.board.cells[4].is_empty(), "배치 초기화해도 판매한 소드는 되살아나지 않음")
 
 
-func _test_cycle() -> void:
-	print("[▲▼ 순환 교체]")
+## [⇅ 교체] 버튼이 쓰는 1:1 교체 (가방에서 고른 주사위와 맞바꿈)
+func _test_pick_swap() -> void:
+	print("[⇅ 교체: 가방 주사위 골라 교체]")
 	var deck: DeckManager = DeckManager.new()
 	StarterDeck.build_plain_into(deck)
 	var a: DiceInstance = deck.active[2]
@@ -65,16 +66,10 @@ func _test_cycle() -> void:
 	var b2: DiceInstance = DiceInstance.new(load("res://data/dice/d4.tres"))
 	deck.add_to_reserve(b1)
 	deck.add_to_reserve(b2)
-	_check(deck.cycle_active(2, 1), "▼ 교체")
-	_eq(deck.active[2], b1, "가방 첫 주사위(d20) 출전")
-	deck.cycle_active(2, 1)
-	_eq(deck.active[2], b2, "한 번 더 ▼ → d4")
-	deck.cycle_active(2, 1)
-	_eq(deck.active[2], a, "한 번 더 ▼ → 원래 주사위 (한 바퀴)")
-	deck.cycle_active(2, -1)
-	_eq(deck.active[2], b2, "▲ 는 반대 방향")
+	_check(deck.swap_slots(2, 1), "출전3 ↔ 가방2(d4) 교체")
+	_check(deck.active[2] == b2 and deck.reserve[1] == a, "고른 가방 주사위가 출전, 기존 주사위는 그 가방 칸으로")
 	deck.lock()
-	_check(not deck.cycle_active(2, 1), "굴린 뒤에는 교체 불가")
+	_check(not deck.swap_slots(2, 0), "굴린 뒤에는 교체 불가")
 
 
 func _test_swap_selected() -> void:

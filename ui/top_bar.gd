@@ -43,7 +43,7 @@ func _ready() -> void:
 	tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tabs.alignment = BoxContainer.ALIGNMENT_END
 	row.add_child(tabs)
-	for entry: Array in [["barracks", "연병장"], ["roll", "주사위"], ["shop", "상점"]]:
+	for entry: Array in [["barracks", "유닛배치"], ["roll", "주사위"], ["shop", "상점"]]:
 		var b: Button = UiKit.button(entry[1], 14)
 		b.toggle_mode = true
 		b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
@@ -68,6 +68,6 @@ func _update() -> void:
 	_extend_button.disabled = not session.timer.can_extend()
 	_extend_button.text = "연장됨" if session.timer.extended else "+30초"
 	# 연병장이 곧 배치 화면: 배치 단계에서는 탭 이름으로 알려 준다
-	(_tabs["barracks"] as Button).text = "연병장 · 배치" if session.phase == GameSession.Phase.PLACEMENT else "연병장"
+	(_tabs["barracks"] as Button).text = "유닛배치 ●" if session.phase == GameSession.Phase.PLACEMENT else "유닛배치"
 	for key: String in _tabs.keys():
 		(_tabs[key] as Button).set_pressed_no_signal(key == current_screen)

@@ -17,7 +17,8 @@ const INTRO_HOLD_TIME: float = 0.8
 ## 양쪽 연병장 문까지 보이도록 (문에서 몰려나오는 장면 포함)
 const FIELD_ZOOM: float = 0.55
 const BARRACKS_ZOOM: float = 1.0
-const BARRACKS_SCREEN_SHIFT: Vector2 = Vector2(-230.0, 0.0)
+## 유닛배치장을 화면 중앙에 (상단 바와 아래 주사위 바 사이 가운데가 되도록 살짝 위로)
+const BARRACKS_SCREEN_SHIFT: Vector2 = Vector2(0.0, 45.0)
 const MAX_EFFECTS: int = 400
 
 const COLOR_GROUND: Color = Color("2e3a2c")
@@ -119,7 +120,7 @@ func set_hud_visible(value: bool) -> void:
 func _focus_barracks() -> void:
 	if _camera == null:
 		return
-	# 왼쪽 준비 UI 패널에 가리지 않도록 연병장을 화면 오른쪽으로 조금 비켜 보여 준다
+	# 유닛배치장을 화면 중앙에 보여 준다
 	_camera.position = to_screen(BattleSimulation.barracks_center(viewer_team)) + BARRACKS_SCREEN_SHIFT
 	_camera.zoom = Vector2.ONE * BARRACKS_ZOOM
 
@@ -516,7 +517,7 @@ func _update_hud() -> void:
 	if view_state == ViewState.IDLE:
 		return
 	if sim == null:
-		_phase_label.text = "연병장"
+		_phase_label.text = "유닛배치"
 		_hud_label.text = ""
 		return
 	var totals: Array[float] = [0.0, 0.0]
@@ -529,7 +530,7 @@ func _update_hud() -> void:
 		NumberFormatter.format_num(roundf(totals[mine])), NumberFormatter.format_num(roundf(totals[theirs]))]
 	match view_state:
 		ViewState.INTRO_CAMERA:
-			_phase_label.text = "연병장 → 전장으로"
+			_phase_label.text = "유닛배치 → 전장으로"
 		ViewState.OPEN_GATES:
 			_phase_label.text = "문이 열린다!"
 		ViewState.RUNNING, ViewState.RESULT:

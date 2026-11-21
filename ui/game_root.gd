@@ -164,7 +164,7 @@ func _build_settle_panel() -> void:
 	_settle_panel.add_child(box)
 	_settle_label = UiKit.label("", 17)
 	box.add_child(_settle_label)
-	_settle_button = UiKit.button("연병장으로", 18)
+	_settle_button = UiKit.button("유닛배치로", 18)
 	_settle_button.pressed.connect(_on_settle_confirmed)
 	box.add_child(_settle_button)
 
@@ -195,7 +195,7 @@ func _show_settlement(summary: Dictionary) -> void:
 		lines.append("★ 15라운드 클리어! ★" if session.player.hp > 0 and won else "게임 오버")
 		_settle_button.text = "처음부터 다시"
 	else:
-		_settle_button.text = "연병장으로 (%dR)" % session.get_round()
+		_settle_button.text = "유닛배치로 (%dR)" % session.get_round()
 	_settle_label.text = "\n".join(lines)
 	_settle_panel.visible = true
 

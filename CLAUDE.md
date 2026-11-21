@@ -52,12 +52,12 @@
 - UI 다시 그리기는 `call_deferred`로 미룬다. 버튼 시그널 처리 중에 그 버튼을 지우면 오류 위험.
 - 에디터가 열려 있을 때 헤드리스 `--import`를 돌리면 `.godot` UID 캐시가 어긋날 수 있다("Unrecognized UID" → 메인 씬 실행 실패). 이때는 에디터에서 [프로젝트 → 현재 프로젝트 다시 불러오기].
 - RefCounted끼리 서로 참조(유닛 target 등)하면 순환 참조로 해제되지 않는다. 끝날 때 참조를 null로 끊는다.
-- 테스트 스위트: test_core_logic(65), test_round_flow(42), test_battle(63, 성능 측정 포함), test_game_session(26, 15R 자동 플레이 밸런스 리포트), test_shop(64), test_placement_and_swap(21).
+- 테스트 스위트: test_core_logic(65), test_round_flow(42), test_battle(63, 성능 측정 포함), test_game_session(26, 15R 자동 플레이 밸런스 리포트), test_shop(64), test_placement_and_swap(17).
 - 코드로 만든 Control 루트는 `set_anchors_and_offsets_preset(FULL_RECT)`를 쓴다. `set_anchors_preset`만 쓰면 크기 0으로 남아 화면 배치가 틀어진다. 화면 구석 배치는 앵커+position 대신 컨테이너(UiKit.overlay_layout)로 한다.
 - UI 위치·크기·색은 `ui/ui_config.gd`(UiConfig)에 모은다. 기준 해상도 1280x720은 GameRoot가 코드로 설정한다 (에디터가 project.godot를 덮어쓸 수 있어 코드 쪽이 안전).
 - 상점 규칙: 식량·성벽은 매 라운드 상시 진열, 같은 라운드 재구매 시 +100원씩 비싸짐. 인첸트는 인벤토리 없이 구매 즉시 빈 슬롯에 장착. 이번 라운드에 굴린 주사위는 인첸트 고정(DeckManager.can_edit_dice).
 - 연출용 Tween은 참조를 들고 있다가 스킵·화면 전환 시 kill()한다. 남은 콜백이 나중에 상태를 다시 바꾼다.
 - 화면 확인: 창 모드(`--headless` 없이)로 SceneTree 러너를 실행해 `root.get_texture().get_image().save_png()`로 스크린샷을 찍는다.
-- 연병장 = 배치 화면 (나인킹즈 방식). 다른 병과 칸에 배치하면 확인 후 기존 유닛 자동 판매(이번 라운드 배치분은 주사위로 되돌림). 별도 배치 화면 없음.
-- 굴림 화면(ui/roll_ui.gd): 왼쪽 종이 기록지, 가운데 위 주사위 쟁반(굴리는 출전 주사위, 고정 시 위 선반), 아래 대기(가방) 주사위. 주사위 위 [⇅ 교체] 버튼 → 가방 주사위 선택해 교체. 아래 곡선 슬롯. [전체 교체]는 가방 주사위 수만큼 출전 주사위 선택. 굴림 연출은 화면 전용 RNG(게임 결과와 무관).
+- 유닛배치 화면(코드상 barracks) = 배치 화면 (나인킹즈 방식). 화면 표기는 "유닛배치". 다른 병과 칸에 배치하면 확인 후 기존 유닛 자동 판매(이번 라운드 배치분은 주사위로 되돌림). 별도 배치 화면 없음.
+- 굴림 화면(ui/roll_ui.gd): 왼쪽 종이 기록지, 가운데 위 주사위 쟁반(굴리는 출전 주사위, 고정 시 고정한 순서대로 선반 왼쪽부터), 아래 대기(가방) 주사위. 주사위 위 [⇅ 교체] 버튼 → 가방 주사위 선택해 교체. 아래 곡선 슬롯. [전체 교체]는 가방 주사위 수만큼 출전 주사위 선택. 굴림 연출은 화면 전용 RNG(게임 결과와 무관).
 - 참고 예시 이미지: C:\Users\cv045\Desktop\YTB\ (상점·주사위 UI·굴리는 곳). 다른 게임 화면은 배치·구조만 참고하고 외형은 따라 하지 않는다.

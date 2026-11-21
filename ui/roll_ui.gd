@@ -114,7 +114,7 @@ func _ready() -> void:
 	_roll_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	_roll_button.pressed.connect(func() -> void: session.flow.roll())
 	right.add_child(_roll_button)
-	_place_button = UiKit.button("연병장에서 배치하기 ▶", 15)
+	_place_button = UiKit.button("유닛배치로 가서 배치하기 ▶", 15)
 	_place_button.custom_minimum_size = Vector2(0, 44)
 	_place_button.pressed.connect(func() -> void: placement_requested.emit())
 	right.add_child(_place_button)
@@ -159,6 +159,7 @@ func refresh() -> void:
 		_popup.visible = false
 	if flow.results.is_empty():
 		_felt_pos.clear()
+	_sync_hold_order()
 	_sheet.call("update_sheet", flow, session.yacht)
 
 	var info: Dictionary = LevelTable.get_upcoming_boss(flow.round_number)
@@ -236,7 +237,8 @@ func _layout_tokens(animate: bool) -> void:
 		var token: Control = _tokens[i]
 		var target: Vector2
 		if flow.has_rolled() and flow.held[i]:
-			var slot: Rect2 = _tray.call("shelf_slot_rect", i, count)
+			# 고정한 순서대로 선반 왼쪽부터 채운다
+			var slot: Rect2 = _tray.call("shelf_slot_rect", maxi(0, _hold_order.find(i)), count)
 			target = slot.get_center() - token.size * 0.5
 		elif flow.has_rolled() and i < _felt_pos.size() and _felt_pos[i].x >= 0.0:
 			target = _felt_pos[i]
@@ -309,6 +311,24 @@ func _on_rolled(_results: Array[DiceRollResult]) -> void:
 # =========================================================================
 # 조작
 # =========================================================================
+
+## 고정한 순서 (선반 왼쪽부터 배치). 화면 표시용이라 RoundFlow가 아닌 여기서 관리한다.
+var _hold_order: Array[int] = []
+
+
+## 실제 고정 상태(RoundFlow.held)와 맞춘다: 해제된 주사위는 빼고(뒤 주사위들이 왼쪽으로 당겨짐),
+## 새로 고정된 주사위는 맨 뒤에 붙인다.
+func _sync_hold_order() -> void:
+	var held: Array[bool] = session.flow.held
+	var kept: Array[int] = []
+	for i: int in _hold_order:
+		if i < held.size() and held[i] and not kept.has(i):
+			kept.append(i)
+	for i: int in range(held.size()):
+		if held[i] and not kept.has(i):
+			kept.append(i)
+	_hold_order = kept
+
 
 func _on_token_pressed(index: int) -> void:
 	var flow: RoundFlow = session.flow
