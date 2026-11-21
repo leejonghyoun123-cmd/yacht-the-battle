@@ -119,7 +119,7 @@ func _on_phase_changed(p: GameSession.Phase) -> void:
 			view.set("pick_enabled", false)
 			tooltip.call("hide_tip")
 		GameSession.Phase.BARRACKS:
-			pass  # 어느 화면을 보여 줄지는 호출하는 쪽이 정한다 (정산 후에는 주사위 테이블)
+			pass  # 어느 화면을 보여 줄지는 호출하는 쪽이 정한다 (정산 후에는 상점)
 
 
 ## 준비·배치 중: 연병장에 현재 병력을 정렬해 보여 준다
@@ -165,7 +165,7 @@ func _build_settle_panel() -> void:
 	_settle_panel.add_child(box)
 	_settle_label = UiKit.label("", 17)
 	box.add_child(_settle_label)
-	_settle_button = UiKit.button("주사위 테이블로", 18)
+	_settle_button = UiKit.button("상점으로", 18)
 	_settle_button.pressed.connect(_on_settle_confirmed)
 	box.add_child(_settle_button)
 
@@ -204,7 +204,7 @@ func _show_settlement(summary: Dictionary) -> void:
 		lines.append("★ 15라운드 클리어! ★" if session.player.hp > 0 and won else "게임 오버")
 		_settle_button.text = "처음부터 다시"
 	else:
-		_settle_button.text = "주사위 테이블로 (%dR)" % session.get_round()
+		_settle_button.text = "상점으로 (%dR)" % session.get_round()
 	_settle_label.text = "\n".join(lines)
 	_settle_panel.visible = true
 
@@ -214,8 +214,8 @@ func _on_settle_confirmed() -> void:
 		get_tree().reload_current_scene()
 		return
 	session.return_to_barracks()
-	# 전투가 끝나면 다음 라운드 주사위 테이블로
-	show_screen("roll")
+	# 전투가 끝나면 다음 라운드 상점으로
+	show_screen("shop")
 
 
 ## 전투 화면 시작 (왼쪽 위에 라운드·골드·체력 표시)
