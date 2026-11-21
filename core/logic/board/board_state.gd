@@ -53,12 +53,6 @@ static func row_for_role(role: UnitData.Role) -> int:
 func can_place(cell_index: int, unit_id: StringName) -> bool:
 	if cell_index < 0 or cell_index >= CELL_COUNT or unit_id == &"":
 		return false
-	# 유일 유닛(킹)은 판 전체에서 한 칸에만 (같은 칸에는 계속 쌓을 수 있다)
-	var data: UnitData = UnitCatalog.get_unit(unit_id)
-	if data != null and data.is_unique:
-		for c: CellState in cells:
-			if c.index != cell_index and not c.is_empty() and c.unit_id == unit_id:
-				return false
 	return cells[cell_index].can_accept(unit_id)
 
 
@@ -95,9 +89,7 @@ func get_stack_sell_price(cell_index: int) -> int:
 	var cell: CellState = cells[cell_index]
 	if not cell.is_stack or cell.is_empty():
 		return 0
-	# 킹은 칸 인원이 누적 K 수라 1장당 가격으로 따로 매긴다
-	var data: UnitData = UnitCatalog.get_unit(cell.unit_id)
-	var per_unit: int = GameBalance.KING_SELL_PER_STACK if (data != null and data.is_unique) else GameBalance.STACK_SELL_PER_UNIT
+	var per_unit: int = GameBalance.STACK_SELL_PER_UNIT
 	if cell.count > FixedNum.MAX / per_unit:
 		return FixedNum.MAX
 	return cell.count * per_unit

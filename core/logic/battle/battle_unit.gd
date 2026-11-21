@@ -7,7 +7,7 @@ var id: int = 0
 var team: int = 0
 var cell_index: int = 0
 var data: UnitData
-## 이 개체 1개가 대표하는 환산 인원 (정예 압축 배수, 거인은 합체 인원)
+## 이 개체 1개가 대표하는 환산 인원 (정예 압축 배수)
 var ratio: float = 1.0
 var tier: int = 1
 var is_consumable: bool = false
@@ -28,10 +28,6 @@ var heal_per_second: float = 0.0
 var support_radius: float = 0.0
 var aura_attack_bonus: float = 0.0
 var aura_defense_bonus: float = 0.0
-## 킹 장판 (킹 본인 값)
-var king_attack_mult: float = 1.0
-var king_damage_taken_mult: float = 1.0
-var king_haste_mult: float = 1.0
 
 var pos: Vector2 = Vector2.ZERO
 ## 진열 위치 (배치판 칸 안의 대형 자리)
@@ -48,12 +44,6 @@ var target: BattleUnit = null
 ## 힐러 오라 (매 재탐색 주기마다 갱신)
 var aura_attack: float = 0.0
 var aura_defense: float = 0.0
-## 킹 장판 안에 있을 때 받는 버프 (곱배수)
-var buff_attack_mult: float = 1.0
-var buff_damage_taken_mult: float = 1.0
-var buff_haste_mult: float = 1.0
-## 킹 본인: 피해를 나눠 받을 장판 안 아군 목록 (오라 갱신 때 채움)
-var share_targets: Array[BattleUnit] = []
 
 ## 칸 보정·타로로 붙는 값
 var mod_damage_taken: float = 1.0
@@ -96,10 +86,7 @@ func setup(p_id: int, p_team: int, packet_cell: int, p_data: UnitData, p_ratio: 
 	support_radius = p_data.support_radius
 	aura_attack_bonus = p_data.aura_attack_bonus
 	aura_defense_bonus = p_data.aura_defense_bonus
-	king_attack_mult = p_data.king_attack_mult
-	king_damage_taken_mult = p_data.king_damage_taken_mult
-	king_haste_mult = p_data.king_haste_mult
-	tier = 1 if (p_data.is_giant or p_data.is_unique) else BattleRules.get_tier(p_ratio)
+	tier = BattleRules.get_tier(p_ratio)
 	radius = p_data.body_radius * BattleRules.get_tier_scale(tier)
 	branch_level = p_data.get_branch_level(total_count)
 	for b: UnitBranch in p_data.get_active_branches(total_count):
@@ -124,24 +111,21 @@ func _apply_branch(b: UnitBranch) -> void:
 	damage_reduction = minf(0.75, damage_reduction + b.damage_reduction_add)
 	reflect_ratio += b.reflect_add
 	aura_attack_bonus += b.aura_attack_add
-	king_attack_mult += b.king_attack_mult_add
-	king_damage_taken_mult *= b.king_damage_taken_mult
-	king_haste_mult += b.king_haste_add
 
 
-## 실제 공격 간격 (킹 장판 공속 버프 반영)
+## 실제 공격 간격 (타로 공속 배율 반영)
 func get_attack_interval() -> float:
-	return attack_interval / maxf(0.1, buff_haste_mult * tarot_haste_mult)
+	return attack_interval / maxf(0.1, tarot_haste_mult)
 
 
 func get_attack_damage() -> float:
 	var type_mult: float = magical_mult if data.damage_type == UnitData.DamageType.MAGICAL else physical_mult
-	return attack * (1.0 + aura_attack) * buff_attack_mult * tarot_attack_mult * type_mult
+	return attack * (1.0 + aura_attack) * tarot_attack_mult * type_mult
 
 
-## 받는 피해 배율 (방어 감소·힐러 오라·킹 장판)
+## 받는 피해 배율 (방어 감소·힐러 오라·칸 보정·타로)
 func get_damage_taken_mult() -> float:
-	return maxf(BattleRules.MIN_DAMAGE_TAKEN, (1.0 - damage_reduction) * (1.0 - aura_defense) * buff_damage_taken_mult * mod_damage_taken * tarot_damage_taken_mult)
+	return maxf(BattleRules.MIN_DAMAGE_TAKEN, (1.0 - damage_reduction) * (1.0 - aura_defense) * mod_damage_taken * tarot_damage_taken_mult)
 
 
 ## 받는 피해 계산 후 적용. 실제 깎인 체력을 반환한다.

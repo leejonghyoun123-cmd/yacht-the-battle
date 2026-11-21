@@ -276,9 +276,6 @@ func _build_selected_panel() -> void:
 	_setup_summon_icon(_big_icon, selected_summon, Color("fff6d8"))
 	_left_box.add_child(_big_icon)
 	var amount_text: String = "%s명 소환" % NumberFormatter.format_num(s["value"])
-	var sel_data: UnitData = UnitCatalog.get_unit(selected_unit) if selected_unit != &"" else null
-	if sel_data != null and sel_data.is_unique:
-		amount_text = "%s 1명 (누적 +1)" % sel_data.display_name
 	var die_text: String = String(s.get("bonus_name", "추가 소환")) if dice == null else dice.data.display_name if dice.trait_data == null else "%s %s · 눈금 %s" % [dice.trait_data.display_name, dice.get_short_name(), dice.face_label(int(s["raw"]))]
 	for line: Array in [["선택한 주사위", 12, UiConfig.COLOR_DIM], [amount_text, 22, Color("ffe08a")], [die_text, 12, UiConfig.COLOR_DIM]]:
 		var l: Label = UiKit.label(line[0], line[1], line[2])
@@ -300,7 +297,7 @@ func _build_selected_panel() -> void:
 
 
 ## 병과 선택 링: 클릭한 칸을 중심으로 병과 버튼이 둘레(8방향 간격)로 피어난다.
-## 거인·킹은 해금된 주사위만 (지금은 해금 수단 없음). exclude = 교체할 때 지금 칸의 병과는 빼기.
+## exclude = 교체할 때 지금 칸의 병과는 빼기.
 func _open_unit_ring(cell_index: int, exclude: StringName = &"") -> void:
 	_close_unit_ring()
 	var ids: Array[StringName] = []
@@ -591,9 +588,9 @@ func _cell_label(cell: CellState) -> String:
 	if cell.is_empty():
 		return tarot_line.strip_edges()
 	var data: UnitData = UnitCatalog.get_unit(cell.unit_id)
-	var plan: Dictionary = BattleRules.get_spawn_plan(cell.get_total(), data.is_giant, data.is_unique)
+	var plan: Dictionary = BattleRules.get_spawn_plan(cell.get_total())
 	var extra: String = ""
-	if not data.is_giant and plan["ratio"] > 1.0:
+	if plan["ratio"] > 1.0:
 		extra = " ×%.1f" % plan["ratio"]
 	return "%s\n%s명%s%s" % [data.display_name, NumberFormatter.format_num(cell.get_total()), extra, tarot_line]
 
@@ -666,7 +663,7 @@ func _try_place(cell_index: int) -> void:
 	if session.can_place(selected_summon, cell.unit_id, cell_index):
 		_place_with_unit(cell_index, cell.unit_id)
 		return
-	# 이 주사위로는 이 칸 병과를 못 넣음 (거인·킹 등) → 바꿀 병과 고르기
+	# 이 주사위로는 이 칸 병과를 못 넣음 → 바꿀 병과 고르기
 	_message.text = "이 주사위로는 %s 칸에 넣을 수 없습니다.\n다른 병과를 고르면 기존 유닛이 판매됩니다." % UnitCatalog.get_unit(cell.unit_id).display_name
 	_open_unit_ring(cell_index, cell.unit_id)
 
@@ -710,9 +707,6 @@ func _summon_tooltip(index: int) -> String:
 		text += "\n· " + m.display_name
 	if bool(s.get("temporary", false)):
 		text += "\n· 과부하: 이번 라운드 한정"
-	var unlocks: Array = s.get("unlocks", [])
-	for u: StringName in unlocks:
-		text += "\n★ %s 배치 가능" % UnitCatalog.get_unit(u).display_name
 	if s["reason"] != "":
 		text += "\n(%s명 → %s)" % [NumberFormatter.format_num(s["base"]), s["reason"]]
 	return text + "\n클릭: 선택"
@@ -721,8 +715,6 @@ func _summon_tooltip(index: int) -> String:
 func _unit_tooltip(data: UnitData) -> String:
 	var text: String = "%s\n체력 %d · 공격 %d · 공격 간격 %.2f초 · 사거리 %d" % [
 		data.display_name, int(data.max_hp), int(data.attack), data.attack_interval, int(data.attack_range)]
-	if data.is_unique:
-		text += "\n왕의 장판: 범위 안 아군 공격력 ×%.1f, 받는 피해 ×%.1f\n킹이 받는 피해는 장판 안 아군이 나눠 받는다\n판에 한 칸만 (K를 같은 칸에 쌓으면 특수능력)" % [data.king_attack_mult, data.king_damage_taken_mult]
 	var thresholds: Array[int] = [data.branch_thresholds.x, data.branch_thresholds.y]
 	var branches: Array[UnitBranch] = [data.branch_1, data.branch_2]
 	for i: int in range(2):

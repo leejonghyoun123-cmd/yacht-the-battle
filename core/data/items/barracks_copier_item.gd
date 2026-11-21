@@ -9,7 +9,7 @@ func modify_packets(_item: ItemInstance, packets: Array[SpawnPacket]) -> void:
 	var low: SpawnPacket = null
 	var high: SpawnPacket = null
 	for p: SpawnPacket in packets:
-		if p.is_consumable or p.unit_data.is_unique:
+		if p.is_consumable:
 			continue
 		if low == null or p.total_count < low.total_count:
 			low = p

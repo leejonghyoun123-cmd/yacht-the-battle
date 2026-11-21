@@ -405,17 +405,6 @@ func _draw() -> void:
 		if u.alive and u.tier >= 2:
 			var aura: Color = TIER_COLORS[u.tier - 1]
 			draw_circle(to_screen(_spawn_display_pos(u)), u.radius * 1.9, Color(aura, 0.22))
-	# 킹 장판 (바닥에 금빛 원, 은은하게 맥동)
-	for u: BattleUnit in sim.units:
-		if u.alive and u.data.is_unique and u.support_radius > 0.0:
-			var center: Vector2 = _spawn_display_pos(u)
-			var pts: PackedVector2Array = PackedVector2Array()
-			for i: int in range(33):
-				var a: float = TAU * float(i) / 32.0
-				pts.append(to_screen(center + Vector2(cos(a), sin(a)) * u.support_radius))
-			var pulse: float = 0.5 + 0.5 * sin(_anim_time * 3.0)
-			draw_colored_polygon(pts, Color(1.0, 0.82, 0.25, 0.07 + 0.04 * pulse))
-			draw_polyline(pts, Color(1.0, 0.85, 0.3, 0.45 + 0.25 * pulse), 2.0)
 	# 유닛 본체: 스틱맨 (화면 아래쪽 유닛이 앞에 오도록 화면 y 순서로 그린다)
 	var drawn: Array[BattleUnit] = []
 	for u: BattleUnit in sim.units:
@@ -431,7 +420,7 @@ func _draw() -> void:
 		if u.tier >= 2:
 			_draw_foot_ring(p, u.radius + 3.0, TIER_COLORS[u.tier - 1])
 		var top: float = UnitFigure.draw(self, p, u, _facing(u, p), _anim_time, TEAM_COLORS[u.team])
-		if u.data.is_giant or u.ratio >= 15.0:
+		if u.ratio >= 15.0:
 			_draw_hp_bar(Vector2(p.x, top - 5.0), u.radius * 2.4, u.hp / u.max_hp, u.team)
 	# 공격·사망 이펙트
 	for e: Dictionary in _effects:

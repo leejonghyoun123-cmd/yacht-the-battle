@@ -7,7 +7,6 @@ extends RefCounted
 const COLOR_STEEL: Color = Color("d8dde6")
 const COLOR_WOOD: Color = Color("8a5a2b")
 const COLOR_DARK: Color = Color("2a2a30")
-const COLOR_GOLD: Color = Color("ffcc33")
 const COLOR_HAT: Color = Color("6a4cc2")
 const COLOR_GEM: Color = Color("7ff0ff")
 
@@ -101,26 +100,6 @@ static func draw(ci: CanvasItem, p: Vector2, u: BattleUnit, facing: float, time:
 			ci.draw_colored_polygon(hat, COLOR_HAT)
 			ci.draw_polyline(PackedVector2Array([hat[0], hat[1], hat[2], hat[0]]), COLOR_DARK, 1.0)
 			top = brim_y - head_r * 2.6
-		"giant":
-			var ang: float = lerpf(-1.4, 0.5, strike)
-			var club_end: Vector2 = hand_front + Vector2(cos(ang) * facing, sin(ang)) * r * 1.7
-			ci.draw_line(hand_front, club_end, COLOR_WOOD, r * 0.32)
-			ci.draw_circle(club_end, r * 0.3, COLOR_WOOD)
-		"king":
-			var cb: float = head.y - head_r * 0.7
-			var cw: float = head_r * 1.1
-			var crown: PackedVector2Array = PackedVector2Array([
-				Vector2(head.x - cw, cb), Vector2(head.x - cw, cb - head_r * 1.1),
-				Vector2(head.x - cw * 0.5, cb - head_r * 0.5), Vector2(head.x, cb - head_r * 1.3),
-				Vector2(head.x + cw * 0.5, cb - head_r * 0.5), Vector2(head.x + cw, cb - head_r * 1.1),
-				Vector2(head.x + cw, cb),
-			])
-			ci.draw_colored_polygon(crown, COLOR_GOLD)
-			crown.append(crown[0])
-			ci.draw_polyline(crown, Color("8a6a10"), 1.0)
-			top = cb - head_r * 1.3
-			# 홀: 손에 금 막대
-			ci.draw_line(hand_front, hand_front + Vector2(r * 0.2 * facing, -r * 1.2), COLOR_GOLD, maxf(1.2, w * 0.8))
 	return top
 
 

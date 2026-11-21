@@ -27,9 +27,8 @@ func _sample_player_board() -> BoardState:
 	b.place(BoardState.index_of(2, 1), &"shield", 120 * s)   # 전열 중첩: 배수 2.4 → 은색
 	b.place(BoardState.index_of(1, 1), &"sword", 300 * s)    # 중열 중첩: 배수 6 → 금색
 	b.place(BoardState.index_of(0, 1), &"cannon", 800 * s)   # 후열 중첩: 배수 16 → 붉은색
-	b.place(BoardState.index_of(2, 0), &"giant", 60 * s)     # 소비칸 거인 2명
+	b.place(BoardState.index_of(2, 0), &"shield", 60 * s)    # 전열 실드
 	b.place(BoardState.index_of(1, 2), &"sword", 30 * s)     # 소비칸 소드
 	b.place(BoardState.index_of(0, 0), &"bow", 45 * s)       # 소비칸 보우
 	b.place(BoardState.index_of(0, 2), &"healer", 25 * s)    # 소비칸 힐러
-	b.place(BoardState.index_of(1, 0), &"king", 5)            # 소비칸 킹 (K 5장 → 2분기)
 	return b

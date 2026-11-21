@@ -66,10 +66,10 @@ func setup(team_packets: Array, seed_value: int) -> void:
 		for packet: SpawnPacket in team_packets[team]:
 			if packet.unit_data == null or packet.total_count <= 0:
 				continue
-			var plan: Dictionary = BattleRules.get_spawn_plan(packet.total_count, packet.unit_data.is_giant, packet.unit_data.is_unique, int(team_compression[team].get("threshold", 0)))
+			var plan: Dictionary = BattleRules.get_spawn_plan(packet.total_count, int(team_compression[team].get("threshold", 0)))
 			var spawn: int = plan["spawn"]
 			var ratio: float = plan["ratio"]
-			var offsets: Array[Vector2] = _formation_offsets(spawn, packet.unit_data.is_giant)
+			var offsets: Array[Vector2] = _formation_offsets(spawn)
 			var center: Vector2 = cell_center(team, packet.cell_index)
 			# 휠 오브 포츈 같은 무작위 보정은 칸마다 이번 전투용으로 1번 추첨
 			var mods: Array[StatModifier] = []
@@ -122,15 +122,10 @@ static func barracks_cell_center(team: int, cell_index: int) -> Vector2:
 	return cell_center(team, cell_index) + Vector2(shift, 0.0)
 
 
-## 칸 안 사각 대형 오프셋 (50명 → 8x7 격자, 거인 1~3명 → 칸 중앙 일렬)
-static func _formation_offsets(count: int, is_giant: bool) -> Array[Vector2]:
+## 칸 안 사각 대형 오프셋 (50명 → 8x7 격자)
+static func _formation_offsets(count: int) -> Array[Vector2]:
 	var offsets: Array[Vector2] = []
 	if count <= 0:
-		return offsets
-	if is_giant:
-		var gap: float = CELL_SIZE * 0.3
-		for i: int in range(count):
-			offsets.append(Vector2(0.0, (float(i) - float(count - 1) * 0.5) * gap))
 		return offsets
 	var cols: int = ceili(sqrt(float(count)))
 	var rows: int = ceili(float(count) / float(cols))
@@ -282,22 +277,9 @@ func _attack(attacker: BattleUnit, target: BattleUnit) -> void:
 		_hit(attacker, target, damage)
 
 
-## 공격 1회 적중: 킹 피해 분담 → 피해 적용 → 반사(가시방패)
+## 공격 1회 적중: 피해 적용 → 반사(가시방패)
 func _hit(attacker: BattleUnit, victim: BattleUnit, damage: float) -> void:
-	var dealt: float = 0.0
-	if not victim.share_targets.is_empty():
-		# 킹이 받는 피해는 장판 안 아군(킹 포함)이 똑같이 나눠 받는다
-		var sharers: Array[BattleUnit] = [victim]
-		for s: BattleUnit in victim.share_targets:
-			if s.alive:
-				sharers.append(s)
-		var part: float = damage / float(sharers.size())
-		for s: BattleUnit in sharers:
-			var d: float = _apply_damage(s, part)
-			if s == victim:
-				dealt += d
-	else:
-		dealt = _apply_damage(victim, damage)
+	var dealt: float = _apply_damage(victim, damage)
 	# 반사 피해는 다시 반사되지 않는다 (반사끼리 무한 반복 방지)
 	if victim.reflect_ratio > 0.0 and dealt > 0.0 and attacker.alive:
 		_apply_damage(attacker, dealt * victim.reflect_ratio)
@@ -382,13 +364,9 @@ func _update_auras() -> void:
 	for u: BattleUnit in units:
 		u.aura_attack = 0.0
 		u.aura_defense = 0.0
-		u.buff_attack_mult = 1.0
-		u.buff_damage_taken_mult = 1.0
-		u.buff_haste_mult = 1.0
-		u.share_targets.clear()
 		u.link_regen = 0.0
 	for healer: BattleUnit in units:
-		if not healer.alive or healer.support_radius <= 0.0 or healer.data.is_unique:
+		if not healer.alive or healer.support_radius <= 0.0:
 			continue
 		if healer.aura_attack_bonus <= 0.0 and healer.aura_defense_bonus <= 0.0:
 			continue
@@ -399,20 +377,6 @@ func _update_auras() -> void:
 				ally.aura_defense = maxf(ally.aura_defense, healer.aura_defense_bonus)
 	# 더 러버: 연결된 칸에 생존자가 있으면 상대 칸 유닛이 매초 회복
 	_update_links()
-	# 킹 장판: 범위 안 아군 공격력·방어·공속 곱배수 버프, 피해 분담 명단 작성
-	for king: BattleUnit in units:
-		if not king.alive or not king.data.is_unique or king.support_radius <= 0.0:
-			continue
-		var king_sq: float = king.support_radius * king.support_radius
-		for ally: BattleUnit in units:
-			if ally.team != king.team or not ally.alive or ally.pos.distance_squared_to(king.pos) > king_sq:
-				continue
-			ally.buff_attack_mult = maxf(ally.buff_attack_mult, king.king_attack_mult)
-			ally.buff_damage_taken_mult = minf(ally.buff_damage_taken_mult, king.king_damage_taken_mult)
-			ally.buff_haste_mult = maxf(ally.buff_haste_mult, king.king_haste_mult)
-			# 명단에는 킹 자신을 넣지 않는다 (자기 참조 순환 방지). 분담 시 킹을 따로 더한다.
-			if king.data.share_damage_in_aura and ally != king:
-				king.share_targets.append(ally)
 
 
 # =========================================================================
@@ -522,7 +486,6 @@ func _finish(winner: int, reason: String) -> void:
 	# 유닛끼리 서로를 target으로 참조하면 RefCounted 순환 참조로 메모리가 해제되지 않는다
 	for u: BattleUnit in units:
 		u.target = null
-		u.share_targets.clear()
 	result = r
 	_set_phase(Phase.ENDED)
 	battle_ended.emit(r)

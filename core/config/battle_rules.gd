@@ -29,26 +29,15 @@ const MIN_DAMAGE_TAKEN: float = 0.25
 ## 더 러버: 연결된 칸이 살아 있는 동안 상대 칸 유닛 초당 최대 체력 회복 비율
 const LINK_REGEN_RATIO: float = 0.03
 
-# --- 거인 합체 ---
-const GIANT_ONE_MAX: int = 30
-const GIANT_TWO_MAX: int = 100
-
-
 static func get_compression_threshold() -> int:
 	return compression_threshold
 
 
 ## 칸 총 인원 → { "spawn": 실제 스폰 수, "ratio": 1개체당 환산 인원 }
 ## threshold: 팀별 압축 기준 (유압 압축기 25). 0 이하면 기본값
-static func get_spawn_plan(total_count: int, is_giant: bool, is_unique: bool = false, threshold_override: int = 0) -> Dictionary:
+static func get_spawn_plan(total_count: int, threshold_override: int = 0) -> Dictionary:
 	if total_count <= 0:
 		return { "spawn": 0, "ratio": 0.0 }
-	# 킹: 칸 인원(=누적 K 수)과 상관없이 1명, 환산 1명
-	if is_unique:
-		return { "spawn": 1, "ratio": 1.0 }
-	if is_giant:
-		var giants: int = 1 if total_count <= GIANT_ONE_MAX else (2 if total_count <= GIANT_TWO_MAX else 3)
-		return { "spawn": giants, "ratio": float(total_count) / float(giants) }
 	var threshold: int = threshold_override if threshold_override > 0 else get_compression_threshold()
 	if total_count <= threshold:
 		return { "spawn": total_count, "ratio": 1.0 }
@@ -63,7 +52,7 @@ static func get_stat_multiplier(ratio: float, bonus_override: float = 0.0) -> fl
 	return ratio
 
 
-## 압축 배수 → 티어 (1~4). 거인은 합체이므로 호출하는 쪽에서 판단.
+## 압축 배수 → 티어 (1~4)
 static func get_tier(ratio: float) -> int:
 	var tier: int = 1
 	for threshold: float in TIER_THRESHOLDS:

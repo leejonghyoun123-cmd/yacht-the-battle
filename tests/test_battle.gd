@@ -57,15 +57,12 @@ func _simulate(player: BoardState, enemy: BoardState, seed_value: int) -> Battle
 
 func _test_compression() -> void:
 	print("[정예 압축]")
-	_eq(BattleRules.get_spawn_plan(30, false), { "spawn": 30, "ratio": 1.0 }, "30명 → 그대로 30 스폰")
-	_eq(BattleRules.get_spawn_plan(300, false), { "spawn": 50, "ratio": 6.0 }, "300명 → 50 스폰, 배수 6")
+	_eq(BattleRules.get_spawn_plan(30), { "spawn": 30, "ratio": 1.0 }, "30명 → 그대로 30 스폰")
+	_eq(BattleRules.get_spawn_plan(300), { "spawn": 50, "ratio": 6.0 }, "300명 → 50 스폰, 배수 6")
 	_eq(BattleRules.get_tier(1.0), 1, "배수 1 → 티어 1")
 	_eq(BattleRules.get_tier(2.0), 2, "배수 2 → 티어 2 (은색)")
 	_eq(BattleRules.get_tier(6.0), 3, "배수 6 → 티어 3 (금색)")
 	_eq(BattleRules.get_tier(15.0), 4, "배수 15 → 티어 4 (붉은색)")
-	_eq(BattleRules.get_spawn_plan(30, true)["spawn"], 1, "거인 30명 → 1명 합체")
-	_eq(BattleRules.get_spawn_plan(31, true)["spawn"], 2, "거인 31명 → 2명")
-	_eq(BattleRules.get_spawn_plan(101, true)["spawn"], 3, "거인 101명 → 3명")
 	var u: BattleUnit = BattleUnit.new()
 	u.setup(0, 0, 0, UnitCatalog.get_unit(&"sword"), 6.0, false)
 	_eq(u.max_hp, 600.0, "배수 6 소드 체력 100 → 600")

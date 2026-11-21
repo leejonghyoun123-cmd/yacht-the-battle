@@ -26,11 +26,3 @@ extends Resource
 @export_range(0.0, 1.0) var reflect_add: float = 0.0
 ## 힐러형 오라: 범위 안 아군 공격력 +
 @export var aura_attack_add: float = 0.0
-
-@export_group("킹 오라 (곱배수)")
-## 킹 오라 공격력 배수에 더함 (1.3 → 1.5)
-@export var king_attack_mult_add: float = 0.0
-## 킹 오라 받는 피해 배수에 곱함 (0.8 × 0.85 = 0.68)
-@export var king_damage_taken_mult: float = 1.0
-## 킹 오라 공격 속도 배수에 더함 (1.0 → 1.25)
-@export var king_haste_add: float = 0.0

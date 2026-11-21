@@ -9,7 +9,6 @@ const UNIT_DIR: String = "res://data/units/"
 
 func _initialize() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(BRANCH_DIR))
-	_make_king()
 
 	# --- 소드: 근접 딜러 → 단단해지고, 2분기에 주변을 함께 베는 회전베기
 	var s1: UnitBranch = _branch("sword_1", "숙련 검술", "공격력 ×1.3, 체력 ×1.2")
@@ -54,41 +53,6 @@ func _initialize() -> void:
 	_link(&"healer", e1, e2)
 	quit(0)
 
-
-func _make_king() -> void:
-	var path: String = UNIT_DIR + "king.tres"
-	var k1: UnitBranch = _branch("king_1", "왕의 위엄", "장판 범위 ×1.5, 장판 공격력 배수 1.3 → 1.5")
-	k1.support_radius_mult = 1.5
-	k1.king_attack_mult_add = 0.2
-	var k2: UnitBranch = _branch("king_2", "왕의 진군", "장판 받는 피해 배수 ×0.85 (0.8 → 0.68), 장판 공속 ×1.25, 킹 체력 ×1.5")
-	k2.king_damage_taken_mult = 0.85
-	k2.king_haste_add = 0.25
-	k2.hp_mult = 1.5
-	if ResourceLoader.exists(path):
-		print("건너뜀 (이미 존재): ", path)
-		return
-	var u: UnitData = UnitData.new()
-	u.id = &"king"
-	u.display_name = "킹"
-	u.role = UnitData.Role.MELEE
-	u.color = Color("ffcc33")
-	u.max_hp = 600.0
-	u.attack = 14.0
-	u.attack_interval = 1.0
-	u.attack_range = 18.0
-	u.move_speed = 50.0
-	u.body_radius = 8.0
-	u.support_radius = 110.0
-	u.is_unique = true
-	u.king_attack_mult = 1.3
-	u.king_damage_taken_mult = 0.8
-	u.king_haste_mult = 1.0
-	u.share_damage_in_aura = true
-	u.branch_thresholds = Vector2i(3, 5)
-	u.branch_1 = _save_branch(k1)
-	u.branch_2 = _save_branch(k2)
-	var err: Error = ResourceSaver.save(u, path)
-	print("생성: " if err == OK else "실패(%d): " % err, path)
 
 
 func _branch(file_id: String, p_name: String, desc: String) -> UnitBranch:

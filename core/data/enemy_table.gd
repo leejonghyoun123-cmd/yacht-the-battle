@@ -10,15 +10,15 @@ const ARMIES: Dictionary = {
 	4: { "total": 80, "units": [&"cannon", &"sword"] },
 	5: { "total": 115, "units": [&"shield", &"healer", &"bow"] },
 	6: { "total": 160, "units": [&"sword", &"healer", &"cannon"] },
-	7: { "total": 220, "units": [&"giant", &"bow"] },
+	7: { "total": 220, "units": [&"shield", &"bow"] },
 	8: { "total": 310, "units": [&"healer", &"sword", &"shield"] },
-	9: { "total": 420, "units": [&"giant", &"healer", &"cannon"] },
+	9: { "total": 420, "units": [&"shield", &"healer", &"cannon"] },
 	10: { "total": 600, "units": [&"sword", &"bow", &"shield"] },
-	11: { "total": 950, "units": [&"cannon", &"healer", &"giant"] },
-	12: { "total": 1400, "units": [&"shield", &"bow", &"healer", &"giant"] },
-	13: { "total": 2100, "units": [&"giant", &"healer"] },
-	14: { "total": 3000, "units": [&"sword", &"bow", &"shield", &"cannon", &"healer", &"giant"] },
-	15: { "total": 4000, "units": [&"sword", &"bow", &"shield", &"cannon", &"healer", &"giant"] },
+	11: { "total": 950, "units": [&"cannon", &"healer", &"shield"] },
+	12: { "total": 1400, "units": [&"shield", &"bow", &"healer"] },
+	13: { "total": 2100, "units": [&"shield", &"healer"] },
+	14: { "total": 3000, "units": [&"sword", &"bow", &"shield", &"cannon", &"healer"] },
+	15: { "total": 4000, "units": [&"sword", &"bow", &"shield", &"cannon", &"healer"] },
 }
 
 ## 무한모드 배율 (16R~ 1.35배, 25R~ 1.5배)

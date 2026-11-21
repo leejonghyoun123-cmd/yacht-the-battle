@@ -40,7 +40,7 @@ func _test_replace() -> void:
 	s.board.place(4, &"sword", 100)  # 이전 라운드부터 있던 중첩칸 소드 100명
 	_to_placement(s)
 	_eq(s.get_replace_info(4, &"sword")["needed"], false, "같은 병과는 덮어쓰기 아님")
-	_check(not s.can_place(0, &"giant", 0), "일반 주사위로는 거인 배치 불가 (해금 전용)")
+	_check(not s.can_place(0, &"giant", 0), "없는 병과(거인)는 배치 불가")
 	s.place(0, &"sword", 4)
 	var info: Dictionary = s.get_replace_info(4, &"bow")
 	_check(info["needed"], "다른 병과 → 덮어쓰기 필요")

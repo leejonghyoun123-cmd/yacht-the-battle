@@ -3,14 +3,8 @@ extends RefCounted
 ## 병과 ID → UnitData 조회 (res://data/units/<id>.tres, 한 번 읽으면 캐시)
 
 const UNIT_DIR: String = "res://data/units/"
-const ALL_IDS: Array[StringName] = [&"sword", &"bow", &"shield", &"cannon", &"healer", &"giant", &"king"]
-## 일반 주사위로 배치할 수 있는 병과 (거인·킹은 해금 전용 — 포커카드 삭제로 현재 해금 수단 없음)
-const NORMAL_IDS: Array[StringName] = [&"sword", &"bow", &"shield", &"cannon", &"healer"]
-const POKER_ONLY_IDS: Array[StringName] = [&"giant", &"king"]
-
-
-static func is_poker_only(unit_id: StringName) -> bool:
-	return POKER_ONLY_IDS.has(unit_id)
+## 병과 목록 (거인·킹은 2026-11-22 리메이크로 삭제)
+const ALL_IDS: Array[StringName] = [&"sword", &"bow", &"shield", &"cannon", &"healer"]
 
 static var _cache: Dictionary = {}
 

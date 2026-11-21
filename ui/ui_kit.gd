@@ -103,11 +103,9 @@ static func cell_text(cell: CellState) -> String:
 	if cell.is_empty():
 		return "[%s]\n(비어 있음)" % kind
 	var data: UnitData = UnitCatalog.get_unit(cell.unit_id)
-	var plan: Dictionary = BattleRules.get_spawn_plan(cell.count, data.is_giant)
+	var plan: Dictionary = BattleRules.get_spawn_plan(cell.count)
 	var extra: String = ""
-	if data.is_giant:
-		extra = "거인 %d명 합체" % plan["spawn"]
-	elif plan["ratio"] > 1.0:
+	if plan["ratio"] > 1.0:
 		var tier: int = BattleRules.get_tier(plan["ratio"])
 		extra = "×%.1f %s" % [plan["ratio"], TIER_NAMES[tier - 1] if tier > 1 else "압축"]
 	return "[%s] %s\n%s명%s" % [kind, data.display_name, NumberFormatter.format_num(cell.count), ("\n" + extra) if extra != "" else ""]

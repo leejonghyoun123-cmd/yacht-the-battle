@@ -32,21 +32,8 @@ enum DamageType { PHYSICAL, MAGICAL }
 @export var support_radius: float = 0.0
 @export var aura_attack_bonus: float = 0.0
 @export var aura_defense_bonus: float = 0.0
-## 거인: 소환 인원 전체를 1~3명으로 합체
-@export var is_giant: bool = false
 ## 화면·충돌용 몸통 반지름 (티어 크기 배율 적용 전)
 @export var body_radius: float = 5.0
-
-@export_group("유일 유닛 (킹)")
-## 한 판에 한 칸에만 놓을 수 있고, 칸 인원과 상관없이 1명만 소환된다 (칸 인원 = 분기 단계용 누적 수)
-@export var is_unique: bool = false
-## 왕의 장판: 범위(support_radius) 안 아군에게 곱배수 버프
-@export var king_attack_mult: float = 1.0
-## 범위 안 아군이 받는 피해 배수 (0.8 = 20% 덜 받음)
-@export var king_damage_taken_mult: float = 1.0
-@export var king_haste_mult: float = 1.0
-## 킹이 받는 피해를 장판 안 아군(킹 포함)이 나눠 받는다
-@export var share_damage_in_aura: bool = false
 
 @export_group("중첩 특수능력")
 ## 분기 기준 인원 (x = 1분기, y = 2분기). 0이면 해당 분기 없음.

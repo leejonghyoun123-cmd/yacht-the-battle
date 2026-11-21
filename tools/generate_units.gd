@@ -31,10 +31,6 @@ func _initialize() -> void:
 	healer.aura_defense_bonus = 0.1
 	_save(healer)
 
-	var giant: UnitData = _unit(&"giant", "거인", UnitData.Role.TANK, Color("b07ad9"), 100.0, 10.0, 1.6, 30.0, 40.0)
-	giant.is_giant = true
-	giant.body_radius = 16.0
-	_save(giant)
 
 	quit(0)
 

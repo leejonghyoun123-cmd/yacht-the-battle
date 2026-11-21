@@ -173,13 +173,11 @@ func _on_yacht_recorded(_category: int, _gold: int) -> void:
 	messages.clear()
 	for result: DiceRollResult in flow.results:
 		var mod: Dictionary = BossRules.modify_summon(get_round(), result)
-		# 성질이 원시 눈금에 따라 해금하는 병과 (현재 없음) + 칸 보정(뼈)
+		# 성질의 칸 보정(뼈) · 과부하 여부
 		var die: DiceInstance = deck.active[result.dice_index]
-		var unlocks: Array[StringName] = []
 		var mods: Array[StatModifier] = []
 		var temporary: bool = false
 		if die.trait_data != null:
-			unlocks = die.trait_data.get_unlocked_units(result.raw_roll, die)
 			mods = die.trait_data.get_cell_modifiers(result.raw_roll, die)
 			temporary = die.trait_data.forces_consumable()
 			_push_message(die.trait_data.on_confirm(die, result, self))
@@ -189,7 +187,7 @@ func _on_yacht_recorded(_category: int, _gold: int) -> void:
 		summons.append({
 			"dice_index": result.dice_index, "base": result.summon_value,
 			"value": mod["value"], "reason": mod["reason"],
-			"raw": result.raw_roll, "unlocks": unlocks, "amount": 0,
+			"raw": result.raw_roll, "amount": 0,
 			"mods": mods, "temporary": temporary,
 			"placed": false, "unit_id": &"", "cell": -1,
 		})
@@ -212,7 +210,7 @@ func _push_message(text: String) -> void:
 func add_bonus_summon(value: int, reason: String) -> void:
 	summons.append({
 		"dice_index": -1, "base": value, "value": maxi(1, value), "reason": "", "bonus_name": reason,
-		"raw": 0, "unlocks": [] as Array[StringName], "amount": 0,
+		"raw": 0, "amount": 0,
 		"mods": [] as Array[StatModifier], "temporary": false,
 		"placed": false, "unit_id": &"", "cell": -1,
 	})
@@ -234,20 +232,13 @@ func can_place(summon_index: int, unit_id: StringName, cell_index: int) -> bool:
 	return board.can_place(cell_index, unit_id)
 
 
-## 이 주사위로 이 병과를 배치할 수 있는가. 거인·킹은 성질이 해금한 주사위만 (포커카드 삭제로 현재 해금 수단 없음).
-func can_use_unit(summon_index: int, unit_id: StringName) -> bool:
-	if not UnitCatalog.is_poker_only(unit_id):
-		return true
-	if summon_index < 0 or summon_index >= summons.size():
-		return false
-	return (summons[summon_index]["unlocks"] as Array).has(unit_id)
+## 이 주사위로 이 병과를 배치할 수 있는가 (지금은 모든 병과 가능 — 거인·킹 해금 규칙은 삭제됨)
+func can_use_unit(_summon_index: int, unit_id: StringName) -> bool:
+	return UnitCatalog.ALL_IDS.has(unit_id)
 
 
-## 이 소환으로 칸에 더해질 인원. 유일 유닛(킹)은 소환값과 상관없이 1 (= 누적 K 수)
-func get_place_amount(summon_index: int, unit_id: StringName) -> int:
-	var data: UnitData = UnitCatalog.get_unit(unit_id)
-	if data != null and data.is_unique:
-		return 1
+## 이 소환으로 칸에 더해질 인원 (= 소환값)
+func get_place_amount(summon_index: int, _unit_id: StringName) -> int:
 	return int(summons[summon_index]["value"])
 
 

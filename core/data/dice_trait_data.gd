@@ -67,11 +67,6 @@ func on_post_pipeline(_ctx: RollContext, _dice: DiceInstance) -> void:
 	pass
 
 
-## 원시 눈금에 따라 추가로 배치할 수 있게 되는 병과 (예: 거인·킹 해금. 현재 쓰는 성질 없음)
-func get_unlocked_units(_raw_roll: int, _dice: DiceInstance) -> Array[StringName]:
-	return []
-
-
 ## 이 주사위로 소환한 칸에 붙는 스탯 보정 (뼈주사위)
 func get_cell_modifiers(_raw_roll: int, _dice: DiceInstance) -> Array[StatModifier]:
 	return []
