@@ -14,7 +14,8 @@ enum ViewState { IDLE, INTRO_CAMERA, OPEN_GATES, RUNNING, RESULT }
 const CAMERA_MOVE_TIME: float = 1.6
 const GATE_OPEN_TIME: float = 0.7
 const INTRO_HOLD_TIME: float = 0.8
-const FIELD_ZOOM: float = 0.62
+## 양쪽 연병장 문까지 보이도록 (문에서 몰려나오는 장면 포함)
+const FIELD_ZOOM: float = 0.55
 const BARRACKS_ZOOM: float = 1.0
 const BARRACKS_SCREEN_SHIFT: Vector2 = Vector2(-230.0, 0.0)
 const MAX_EFFECTS: int = 400
@@ -278,20 +279,21 @@ func _draw_barracks(canvas: Node2D, team: int) -> void:
 		canvas.draw_colored_polygon(p, COLOR_STACK_CELL if is_stack else COLOR_CONSUME_CELL)
 		p.append(p[0])
 		canvas.draw_polyline(p, Color(1, 1, 1, 0.15), 1.0)
-	# 벽: 뒤·양옆 (앞쪽은 문)
+	# 벽: 뒤·양옆 + 앞면(가운데 좁은 문만 비움)
 	var back: float = center.x - half * dir
+	var gw: float = BattleSimulation.GATE_HALF_WIDTH
 	var wall: PackedVector2Array = PackedVector2Array([
-		to_screen(Vector2(gate.x, -half * dir)), to_screen(Vector2(back, -half * dir)),
-		to_screen(Vector2(back, half * dir)), to_screen(Vector2(gate.x, half * dir)),
+		to_screen(Vector2(gate.x, -gw)), to_screen(Vector2(gate.x, -half)), to_screen(Vector2(back, -half)),
+		to_screen(Vector2(back, half)), to_screen(Vector2(gate.x, half)), to_screen(Vector2(gate.x, gw)),
 	])
 	canvas.draw_polyline(wall, COLOR_WALL, 7.0)
-	# 문: 앞면 전체가 두 짝 문. 닫힘 → 양옆으로 밀려 열림
-	var door: float = half * (1.0 - _gate_open)
+	# 문: 좁은 두 짝 문. 닫힘 → 양옆으로 밀려 열림
+	var door: float = gw * (1.0 - _gate_open)
 	var gate_color: Color = COLOR_GATE.lerp(Color(COLOR_GATE, 0.25), _gate_open)
-	canvas.draw_line(to_screen(gate + Vector2(0.0, -half)), to_screen(gate + Vector2(0.0, -half + door)), gate_color, 9.0)
-	canvas.draw_line(to_screen(gate + Vector2(0.0, half)), to_screen(gate + Vector2(0.0, half - door)), gate_color, 9.0)
-	canvas.draw_circle(to_screen(gate + Vector2(0.0, -half)), 10.0, COLOR_WALL)
-	canvas.draw_circle(to_screen(gate + Vector2(0.0, half)), 10.0, COLOR_WALL)
+	canvas.draw_line(to_screen(gate + Vector2(0.0, -gw)), to_screen(gate + Vector2(0.0, -gw + door)), gate_color, 9.0)
+	canvas.draw_line(to_screen(gate + Vector2(0.0, gw)), to_screen(gate + Vector2(0.0, gw - door)), gate_color, 9.0)
+	canvas.draw_circle(to_screen(gate + Vector2(0.0, -gw - 8.0)), 10.0, COLOR_WALL)
+	canvas.draw_circle(to_screen(gate + Vector2(0.0, gw + 8.0)), 10.0, COLOR_WALL)
 
 
 func _draw() -> void:

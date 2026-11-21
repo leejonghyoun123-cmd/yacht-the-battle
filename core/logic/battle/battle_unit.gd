@@ -19,6 +19,9 @@ var radius: float = 5.0
 var pos: Vector2 = Vector2.ZERO
 ## 진열 위치 (배치판 칸 안의 대형 자리)
 var home: Vector2 = Vector2.ZERO
+## 진열 이동 경로: 0 = 연병장 문으로 몰려감, 1 = 문을 나와 진열 자리로
+var deploy_stage: int = 0
+var gate_waypoint: Vector2 = Vector2.ZERO
 var alive: bool = true
 var cooldown: float = 0.0
 var heal_cooldown: float = 0.0

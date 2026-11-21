@@ -23,6 +23,8 @@ const GATE_X: float = 720.0
 ## 문에서 연병장 중심까지 거리 (연병장 안에도 3x3 칸이 필드와 같은 크기로 있다)
 const BARRACKS_DEPTH: float = 190.0
 const BARRACKS_HALF: float = 185.0
+## 연병장 문 폭의 절반 (좁은 문으로 몰려나간다)
+const GATE_HALF_WIDTH: float = 70.0
 const RUN_SPEED: float = 240.0
 ## 공간 분할 격자 크기 (가까운 적 탐색 가속)
 const GRID_SIZE: float = 64.0
@@ -65,8 +67,11 @@ func setup(team_packets: Array, seed_value: int) -> void:
 				var u: BattleUnit = BattleUnit.new()
 				u.setup(next_id, team, packet.cell_index, packet.unit_data, ratio, packet.is_consumable)
 				u.home = center + offsets[i]
-				# 연병장 안에서도 배치한 칸 그대로 정렬해 서 있다가, 대형을 유지한 채 필드로 행군한다
+				# 연병장 안에서는 배치한 칸대로 정렬해 서 있다가 → 좁은 문으로 우르르 몰려나가 → 필드에서 다시 정렬
 				u.pos = barracks_cell_center(team, packet.cell_index) + offsets[i]
+				var lane: float = clampf(u.pos.y * 0.3, -GATE_HALF_WIDTH + 12.0, GATE_HALF_WIDTH - 12.0)
+				u.gate_waypoint = Vector2(gate_position(team).x + 25.0 * team_direction(team), lane)
+				u.deploy_stage = 0
 				u.retarget_timer = BattleRules.RETARGET_INTERVAL * float(next_id % 8) / 8.0
 				units.append(u)
 				next_id += 1
@@ -169,9 +174,21 @@ func _set_phase(p: Phase) -> void:
 func _step_deploy(dt: float) -> void:
 	var all_arrived: bool = true
 	for u: BattleUnit in units:
+		var move: float = RUN_SPEED * dt
+		if u.deploy_stage == 0:
+			# 1단계: 연병장 문으로 몰려감
+			var to_gate: Vector2 = u.gate_waypoint - u.pos
+			var gate_dist: float = to_gate.length()
+			if gate_dist <= move:
+				u.pos = u.gate_waypoint
+				u.deploy_stage = 1
+			else:
+				u.pos += to_gate / gate_dist * move
+			all_arrived = false
+			continue
+		# 2단계: 문을 나와 진열 자리로
 		var to_home: Vector2 = u.home - u.pos
 		var dist: float = to_home.length()
-		var move: float = RUN_SPEED * dt
 		if dist <= move:
 			u.pos = u.home
 		else:
