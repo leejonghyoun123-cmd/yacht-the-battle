@@ -1,6 +1,7 @@
 class_name RoundTimer
 extends RefCounted
 ## 준비 시간 타이머 (기본 2분, 라운드당 1회 30초 연장).
+## 친선전 전용: 솔로에서는 enabled = false로 꺼 둔다 (시스템은 그대로 유지).
 ## 실제 시간은 화면이 tick(delta)으로 넘겨준다. 0이 되면 expired 1회 발생.
 
 signal expired
@@ -8,12 +9,14 @@ signal expired
 var time_left: float = GameBalance.PREP_TIME
 var extended: bool = false
 var running: bool = false
+## false면 reset해도 돌지 않는다 (솔로 모드)
+var enabled: bool = true
 
 
 func reset() -> void:
 	time_left = GameBalance.PREP_TIME
 	extended = false
-	running = true
+	running = enabled
 
 
 func stop() -> void:

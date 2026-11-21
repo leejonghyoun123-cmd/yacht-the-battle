@@ -91,6 +91,9 @@ func _update() -> void:
 	_gold_label.text = NumberFormatter.format_num(p.gold)
 	_hp_gauge.call("set_values", p.hp, p.max_hp, p.round_shield)
 	_shield_label.text = "실드 %d" % p.round_shield if p.round_shield > 0 else ""
+	# 솔로(타이머 꺼짐)에서는 시간·연장 버튼을 숨긴다
+	_timer_label.visible = session.timer.enabled
+	_extend_button.visible = session.timer.enabled
 	_timer_label.text = session.timer.get_text()
 	_timer_label.add_theme_color_override("font_color", Color("ff6b6b") if session.timer.time_left <= UiConfig.TIMER_WARNING_SECONDS else Color.WHITE)
 	_extend_button.disabled = not session.timer.can_extend()

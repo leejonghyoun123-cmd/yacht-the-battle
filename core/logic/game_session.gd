@@ -33,7 +33,8 @@ var last_summary: Dictionary = {}
 var _board_snapshot: Array = []
 
 
-func _init(seed_value: int = 0) -> void:
+## use_prep_timer: 준비 시간 타이머 사용 (친선전 true, 솔로 false)
+func _init(seed_value: int = 0, use_prep_timer: bool = false) -> void:
 	rng = RandomNumberGenerator.new()
 	if seed_value != 0:
 		rng.seed = seed_value
@@ -52,6 +53,7 @@ func _init(seed_value: int = 0) -> void:
 	shop.acquire_tarot_cb = acquire_tarot
 	shop.restock(flow.round_number)
 	timer = RoundTimer.new()
+	timer.enabled = use_prep_timer
 	timer.reset()
 	flow.yacht_recorded.connect(_on_yacht_recorded)
 	apply_round_rules()

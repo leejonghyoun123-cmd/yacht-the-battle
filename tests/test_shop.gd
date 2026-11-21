@@ -185,7 +185,7 @@ func _test_timer_and_auto() -> void:
 	t.tick(151.0)
 	_check(fired[0] and not t.running, "0이 되면 만료 신호")
 
-	var s: GameSession = _session()
+	var s: GameSession = GameSession.new(4242, true)
 	var sim: BattleSimulation = s.auto_finalize()
 	_check(sim != null and s.phase == GameSession.Phase.BATTLE, "연병장 상태에서 만료 → 자동 굴림·기록·배치·전투")
 	_check(s.yacht.recorded.size() == 1, "얏츠판 1항목 자동 기록")
@@ -199,6 +199,10 @@ func _test_timer_and_auto() -> void:
 	s.settle_battle()
 	s.return_to_barracks()
 	_check(s.timer.running and s.timer.get_text() == "2:00" and not s.timer.extended, "다음 라운드 타이머·연장 초기화")
+	var solo: GameSession = _session()
+	_check(not solo.timer.enabled and not solo.timer.running, "솔로: 준비 타이머 꺼짐")
+	solo.timer.tick(999.0)
+	_eq(solo.phase, GameSession.Phase.BARRACKS, "솔로: 시간이 지나도 자동 진행 없음")
 
 
 func _test_shield() -> void:
