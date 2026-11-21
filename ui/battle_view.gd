@@ -44,6 +44,7 @@ var _gate_open: float = 0.0
 var _whistle_flash: float = 0.0
 
 # HUD
+var _hud_layer: CanvasLayer
 var _hud_label: Label
 var _phase_label: Label
 var _speed_buttons: Array[Button] = []
@@ -73,12 +74,43 @@ func start_battle(simulation: BattleSimulation, p_viewer_team: int = 0) -> void:
 	_result_panel.visible = false
 	_floor.queue_redraw()
 	_focus_barracks()
+	set_hud_visible(true)
 	_set_state(ViewState.INTRO_CAMERA)
+	_kill_intro_tween()
 	var tween: Tween = create_tween()
+	_intro_tween = tween
 	tween.tween_interval(INTRO_HOLD_TIME)
 	tween.tween_property(_camera, "position", Vector2.ZERO, CAMERA_MOVE_TIME).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	tween.parallel().tween_property(_camera, "zoom", Vector2.ONE * FIELD_ZOOM, CAMERA_MOVE_TIME).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	tween.tween_callback(func() -> void: _set_state(ViewState.OPEN_GATES))
+
+
+## 준비 단계: 전투를 돌리지 않고 연병장에 모인 병력만 보여 준다 (HUD 숨김)
+func show_preview(simulation: BattleSimulation, p_viewer_team: int = 0) -> void:
+	sim = simulation
+	viewer_team = p_viewer_team
+	_effects.clear()
+	_gate_open = 0.0
+	_result_panel.visible = false
+	_kill_intro_tween()
+	_set_state(ViewState.IDLE)
+	set_hud_visible(false)
+	_floor.queue_redraw()
+	_focus_barracks()
+
+
+var _intro_tween: Tween = null
+
+
+func _kill_intro_tween() -> void:
+	if _intro_tween != null and _intro_tween.is_valid():
+		_intro_tween.kill()
+	_intro_tween = null
+
+
+func set_hud_visible(value: bool) -> void:
+	if _hud_layer != null:
+		_hud_layer.visible = value
 
 
 ## 연병장(내 진영 문 쪽) 비추기 — 준비 단계 화면에서도 사용
@@ -97,8 +129,10 @@ func set_speed(value: int) -> void:
 
 ## 스킵: 연출 상관없이 즉시 끝까지 계산 (결과는 실시간과 동일)
 func skip_to_end() -> void:
-	if sim == null or view_state == ViewState.RESULT:
+	if sim == null or view_state == ViewState.RESULT or view_state == ViewState.IDLE:
 		return
+	# 진행 중인 카메라 연출을 멈춰야 나중에 연출 콜백이 전투 상태를 다시 바꾸지 않는다
+	_kill_intro_tween()
 	_camera.position = Vector2.ZERO
 	_camera.zoom = Vector2.ONE * FIELD_ZOOM
 	_gate_open = 1.0
@@ -313,6 +347,7 @@ func _draw_hp_bar(center: Vector2, width: float, ratio: float, team: int) -> voi
 
 func _build_hud() -> void:
 	var layer: CanvasLayer = CanvasLayer.new()
+	_hud_layer = layer
 	add_child(layer)
 	var root: Control = Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -377,6 +412,8 @@ func _build_hud() -> void:
 
 
 func _update_hud() -> void:
+	if view_state == ViewState.IDLE:
+		return
 	if sim == null:
 		_phase_label.text = "연병장"
 		_hud_label.text = ""

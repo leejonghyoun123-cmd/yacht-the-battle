@@ -52,5 +52,7 @@
 - UI 다시 그리기는 `call_deferred`로 미룬다. 버튼 시그널 처리 중에 그 버튼을 지우면 오류 위험.
 - 에디터가 열려 있을 때 헤드리스 `--import`를 돌리면 `.godot` UID 캐시가 어긋날 수 있다("Unrecognized UID" → 메인 씬 실행 실패). 이때는 에디터에서 [프로젝트 → 현재 프로젝트 다시 불러오기].
 - RefCounted끼리 서로 참조(유닛 target 등)하면 순환 참조로 해제되지 않는다. 끝날 때 참조를 null로 끊는다.
-- 테스트 스위트: test_core_logic(65), test_round_flow(42), test_battle(63, 성능 측정 포함).
+- 테스트 스위트: test_core_logic(65), test_round_flow(42), test_battle(63, 성능 측정 포함), test_game_session(24, 15R 자동 플레이 밸런스 리포트).
+- 코드로 만든 Control 루트는 `set_anchors_and_offsets_preset(FULL_RECT)`를 쓴다. `set_anchors_preset`만 쓰면 크기 0으로 남아 화면 배치가 틀어진다. 화면 구석 배치는 앵커+position 대신 컨테이너(UiKit.overlay_layout)로 한다.
+- 연출용 Tween은 참조를 들고 있다가 스킵·화면 전환 시 kill()한다. 남은 콜백이 나중에 상태를 다시 바꾼다.
 - 화면 확인: 창 모드(`--headless` 없이)로 SceneTree 러너를 실행해 `root.get_texture().get_image().save_png()`로 스크린샷을 찍는다.

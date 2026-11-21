@@ -7,6 +7,11 @@ extends Control
 ## 0이면 실행할 때마다 무작위 시드
 @export var fixed_seed: int = 0
 
+## 게임 전체 흐름(GameRoot)에 연결된 경우: 기록 후 [배치하러 가기]로 넘어간다.
+## 연결되지 않고 단독 실행하면 예전처럼 [다음 라운드 (임시)]로 동작한다.
+signal proceed_requested
+var integrated: bool = false
+
 const COLOR_BG: Color = Color("1b1d24")
 const COLOR_PANEL: Color = Color("272a35")
 const COLOR_CARD: Color = Color("323645")
@@ -34,7 +39,8 @@ var _status_label: Label
 
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	# 코드로 붙일 때(CanvasLayer 아래 등) 크기 0으로 남지 않도록 오프셋까지 화면 전체로 맞춘다
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_setup_logic()
 	_build_layout()
 	flow.changed.connect(_queue_refresh)
@@ -55,6 +61,9 @@ func _queue_refresh() -> void:
 
 
 func _setup_logic() -> void:
+	# GameRoot가 GameSession의 RoundFlow를 미리 넣어 준 경우 그대로 사용
+	if flow != null:
+		return
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	if fixed_seed != 0:
 		rng.seed = fixed_seed
@@ -195,8 +204,10 @@ func _refresh() -> void:
 			_roll_button.text = "확정됨"
 			_roll_button.disabled = true
 			var cat_name: String = YachtBoard.CATEGORY_NAMES[flow.recorded_category]
-			_status_label.text = "%s 기록 완료: +%s원. 소환값 %s → (Step 3에서 병과 선택·배치·전투 연결 예정)" % [
-				cat_name, NumberFormatter.format_num(flow.recorded_gold), str(flow.get_summon_values())]
+			var next_hint: String = "[배치하러 가기]로 병과를 골라 소환하세요." if integrated else "(단독 실행: 다음 라운드로)"
+			_status_label.text = "%s 기록 완료: +%s원. 소환값 %s → %s" % [
+				cat_name, NumberFormatter.format_num(flow.recorded_gold), str(flow.get_summon_values()), next_hint]
+	_next_button.text = "배치하러 가기 ▶" if integrated else "다음 라운드 ▶ (임시)"
 
 
 func _boss_text() -> String:
@@ -383,7 +394,10 @@ func _rebuild_reserve() -> void:
 
 
 func _on_next_round() -> void:
-	flow.advance_round()
+	if integrated:
+		proceed_requested.emit()
+	else:
+		flow.advance_round()
 
 
 # =========================================================================
