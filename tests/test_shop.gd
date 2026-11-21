@@ -172,13 +172,13 @@ func _test_timer_and_auto() -> void:
 	print("[타이머 · 시간 만료 자동 진행]")
 	var t: RoundTimer = RoundTimer.new()
 	t.reset()
-	_eq(t.get_text(), "1:30", "기본 1분 30초")
+	_eq(t.get_text(), "2:00", "기본 2분")
 	_check(t.extend(), "30초 연장")
-	_eq(t.get_text(), "2:00", "연장 후 2:00")
+	_eq(t.get_text(), "2:30", "연장 후 2:30")
 	_check(not t.extend(), "라운드당 1회만 연장")
 	var fired: Array[bool] = [false]
 	t.expired.connect(func() -> void: fired[0] = true)
-	t.tick(121.0)
+	t.tick(151.0)
 	_check(fired[0] and not t.running, "0이 되면 만료 신호")
 
 	var s: GameSession = _session()
@@ -194,7 +194,7 @@ func _test_timer_and_auto() -> void:
 	sim.run_to_end()
 	s.settle_battle()
 	s.return_to_barracks()
-	_check(s.timer.running and s.timer.get_text() == "1:30" and not s.timer.extended, "다음 라운드 타이머·연장 초기화")
+	_check(s.timer.running and s.timer.get_text() == "2:00" and not s.timer.extended, "다음 라운드 타이머·연장 초기화")
 
 
 func _test_shield() -> void:

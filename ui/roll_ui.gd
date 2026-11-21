@@ -9,6 +9,19 @@ extends Control
 ## 연출은 화면 전용 RNG를 쓰므로 게임 결과(결정론)에 영향을 주지 않는다.
 
 signal placement_requested
+signal shop_requested
+
+
+func _colored_button(text: String, color: Color, font_size: int) -> Button:
+	var b: Button = UiKit.button(text, font_size)
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	for state: String in ["normal", "hover", "pressed"]:
+		var sb: StyleBoxFlat = StyleBoxFlat.new()
+		sb.bg_color = color.lightened(0.15) if state == "hover" else (color.darkened(0.2) if state == "pressed" else color)
+		sb.set_corner_radius_all(8)
+		sb.set_content_margin_all(6)
+		b.add_theme_stylebox_override(state, sb)
+	return b
 
 const DiceTray: GDScript = preload("res://ui/widgets/dice_tray.gd")
 const DieToken: GDScript = preload("res://ui/widgets/die_token.gd")
@@ -123,25 +136,30 @@ func _ready() -> void:
 	_rolls_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	rolls_panel.add_child(_rolls_label)
 	right.add_child(rolls_panel)
-	_place_button = UiKit.button("유닛배치로 가서 배치하기 ▶", 15)
-	_place_button.custom_minimum_size = Vector2(0, 44)
+	# 기록 후: 눈에 확 띄는 배치 버튼 (초록 + 큰 글씨 + 깜빡임)
+	_place_button = _colored_button("유닛배치로 가서\n배치하기 ▶", Color("2fae6b"), 20)
+	_place_button.custom_minimum_size = Vector2(0, 84)
 	_place_button.pressed.connect(func() -> void: placement_requested.emit())
 	right.add_child(_place_button)
+	var pulse: Tween = _place_button.create_tween().set_loops()
+	pulse.tween_property(_place_button, "modulate", Color(1.25, 1.25, 1.25), 0.55)
+	pulse.tween_property(_place_button, "modulate", Color.WHITE, 0.55)
 	_status_label = UiKit.label("", 13, UiConfig.COLOR_ACCENT)
 	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_status_label.custom_minimum_size = Vector2(200, 0)
 	right.add_child(_status_label)
-	var calc_panel: PanelContainer = UiKit.panel()
-	calc_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_calc_label = RichTextLabel.new()
-	_calc_label.bbcode_enabled = true
-	_calc_label.fit_content = true
-	_calc_label.scroll_active = false
-	_calc_label.custom_minimum_size = Vector2(200, 0)
-	_calc_label.add_theme_font_size_override("normal_font_size", 13)
-	_calc_label.add_theme_font_size_override("bold_font_size", 13)
-	calc_panel.add_child(_calc_label)
-	right.add_child(calc_panel)
+	var spacer: Control = Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	right.add_child(spacer)
+	# 화면 이동 버튼 (오른쪽 아래, 크게)
+	var to_placement: Button = _colored_button("유닛배치", Color("3a5a8c"), 20)
+	to_placement.custom_minimum_size = Vector2(0, 56)
+	to_placement.pressed.connect(func() -> void: placement_requested.emit())
+	right.add_child(to_placement)
+	var to_shop: Button = _colored_button("상점", Color("8c5a2b"), 20)
+	to_shop.custom_minimum_size = Vector2(0, 56)
+	to_shop.pressed.connect(func() -> void: shop_requested.emit())
+	right.add_child(to_shop)
 
 	# [⇅ 교체] 안내 (누른 주사위 옆에 뜬다)
 	_side_panel = UiKit.panel(Color(0.08, 0.09, 0.12, 0.95), UiConfig.COLOR_SELECTED)
@@ -206,6 +224,8 @@ func refresh() -> void:
 	_rebuild_bag_row()
 	_update_calc()
 
+	_rolls_label.add_theme_font_size_override("font_size", 22)
+	_rolls_label.add_theme_color_override("font_color", Color.WHITE)
 	# 남은 굴리기 횟수 (굴리기 버튼 없음 — 주사위통을 흔들어 굴린다)
 	match flow.phase:
 		RoundFlow.Phase.PREP:
@@ -216,7 +236,10 @@ func refresh() -> void:
 			_rolls_label.text = "남은 굴리기 %d회" % flow.rerolls_left
 			_status_label.text = "남길 주사위를 눌러 고정(위 선반)하고 다시 흔들어 굴리거나, 기록지의 노란 칸을 눌러 기록하세요."
 		RoundFlow.Phase.RECORDED:
+			# 기록 완료는 작게, 배치 버튼이 눈에 띄도록
 			_rolls_label.text = "기록 완료"
+			_rolls_label.add_theme_font_size_override("font_size", 15)
+			_rolls_label.add_theme_color_override("font_color", UiConfig.COLOR_DIM)
 			_status_label.text = "%s 기록 +%s원" % [YachtBoard.CATEGORY_NAMES[flow.recorded_category], NumberFormatter.format_num(flow.recorded_gold)]
 	_place_button.visible = flow.phase == RoundFlow.Phase.RECORDED
 
@@ -578,6 +601,9 @@ func _rebuild_bag_row() -> void:
 
 ## 오른쪽 "계산 과정": 마지막으로 누른 주사위의 연산 단계 (메아리 발동·미발동 표기)
 func _update_calc() -> void:
+	# 계산 과정 패널은 제거됨 (주사위에 마우스를 올리면 툴팁으로 확인)
+	if _calc_label == null:
+		return
 	var flow: RoundFlow = session.flow
 	var i: int = clampi(_focus_index, 0, session.deck.active.size() - 1)
 	var dice: DiceInstance = session.deck.active[i]

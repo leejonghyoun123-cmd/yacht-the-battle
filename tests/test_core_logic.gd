@@ -293,6 +293,8 @@ func _test_yacht_categories() -> void:
 	_eq(YachtBoard.score_base(C.FOUR_OF_A_KIND, [7, 17, 27, 37, 47], 3), 425, "얏츠는 포카드로 인정: 합 35 → 350 + 75")
 	_eq(YachtBoard.score_base(C.FULL_HOUSE, [7, 17, 27, 37, 47], 3), 0, "얏츠는 풀하우스로 불인정")
 	_eq(YachtBoard.score_base(C.YACHT, [10, 20, 30, 40, 50], 1), 750, "0 다섯 개도 얏츠")
+	_eq(YachtBoard.score_base(C.SIXES, [6, 16, 26, 3, 5], 1), 180, "식스: 6·16·26 → 3개 × 6 × 10 = 180")
+	_eq(YachtBoard.score_base(C.CHOICE, [13, 22, 5, 9, 1], 1), 200, "초이스: 1의 자리 합 3+2+5+9+1=20 → 200")
 	_eq(YachtBoard.score_base(C.FOUR_OF_A_KIND, [1, 2, 3, 4, 5], 1), 0, "족보 불성립 → 0")
 
 
@@ -307,7 +309,7 @@ func _test_yacht_record_and_prestige() -> void:
 	for category: int in YachtBoard.Category.values():
 		if board.prestige_level == 0 and not board.is_recorded(category):
 			board.record(category, junk, 1)
-	_eq(board.prestige_level, 1, "10칸 완성 → 프레스티지 1")
+	_eq(board.prestige_level, 1, "12칸 완성 → 프레스티지 1")
 	_eq(prestige_events, [1] as Array[int], "prestige_triggered 시그널 발행")
 	_eq(board.recorded.size(), 0, "보드 초기화")
 	var values: Array[int] = [1, 11, 2, 3, 4]

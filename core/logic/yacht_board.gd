@@ -4,13 +4,14 @@ extends RefCounted
 ## 판정은 확정 소환값(정수)의 1의 자리로 하고, "합"도 1의 자리 합이다.
 ##   - 1의 자리 0: 상단 해당 없음 / 스트레이트는 0~9 연속(9→0 순환 없음) / 포카드·풀하우스·얏츠에선 일반 숫자
 ## 매 라운드 1항목 필수 기록, 족보가 맞지 않으면 0원 기록.
-## 10항목을 모두 채우면 즉시 프레스티지 +1, 보드 초기화, 이후 보상 2^프레스티지 배.
+## 12항목(상단 에이스~식스 6 + 초이스 + 하단 5)을 모두 채우면 즉시 프레스티지 +1, 보드 초기화, 이후 보상 2^프레스티지 배.
 
 signal category_recorded(category: Category, gold: int)
 signal prestige_triggered(new_level: int)
 
 enum Category {
-	ACES, TWOS, THREES, FOURS, FIVES,
+	ACES, TWOS, THREES, FOURS, FIVES, SIXES,
+	CHOICE,
 	FOUR_OF_A_KIND, FULL_HOUSE, SMALL_STRAIGHT, LARGE_STRAIGHT, YACHT,
 }
 
@@ -20,6 +21,8 @@ const CATEGORY_NAMES: Dictionary = {
 	Category.THREES: "쓰리",
 	Category.FOURS: "포",
 	Category.FIVES: "파이브",
+	Category.SIXES: "식스",
+	Category.CHOICE: "초이스",
 	Category.FOUR_OF_A_KIND: "포오브카인드",
 	Category.FULL_HOUSE: "풀하우스",
 	Category.SMALL_STRAIGHT: "스몰 스트레이트",
@@ -83,9 +86,12 @@ static func score_base(category: Category, values: Array[int], round_number: int
 	for d: int in digits:
 		digit_sum += d
 	match category:
-		Category.ACES, Category.TWOS, Category.THREES, Category.FOURS, Category.FIVES:
+		Category.ACES, Category.TWOS, Category.THREES, Category.FOURS, Category.FIVES, Category.SIXES:
 			var face: int = int(category) + 1
 			return counts[face] * face * GOLD_PER_PIP
+		Category.CHOICE:
+			# 초이스: 주사위 5개 1의 자리 전부의 합 (족보 조건 없음)
+			return digit_sum * GOLD_PER_PIP
 		Category.FOUR_OF_A_KIND:
 			return digit_sum * GOLD_PER_PIP + BONUS_FOUR_OF_A_KIND if counts.max() >= 4 else 0
 		Category.FULL_HOUSE:

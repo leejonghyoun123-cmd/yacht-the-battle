@@ -99,7 +99,7 @@ func _test_record_and_advance() -> void:
 	_check(not flow.advance_round(), "기록 전에는 다음 라운드 불가")
 	flow.roll()
 	var preview: Dictionary = flow.get_yacht_preview()
-	_eq(preview.size(), 10, "미기록 10항목 미리보기")
+	_eq(preview.size(), 12, "미기록 12항목 미리보기")
 	var expected_gold: int = preview[YachtBoard.Category.YACHT]
 	_check(flow.record_yacht(YachtBoard.Category.YACHT), "얏츠 항목 기록 (불성립이면 0원)")
 	_eq(flow.player.gold, start_gold + expected_gold, "미리보기 금액만큼 골드 지급")
@@ -111,7 +111,7 @@ func _test_record_and_advance() -> void:
 	_eq(flow.phase, RoundFlow.Phase.PREP, "준비 단계로 복귀")
 	flow.roll()
 	_check(not flow.record_yacht(YachtBoard.Category.YACHT), "이미 기록한 항목은 다시 기록 불가")
-	_eq(flow.get_yacht_preview().size(), 9, "남은 9항목만 미리보기")
+	_eq(flow.get_yacht_preview().size(), 11, "남은 11항목만 미리보기")
 
 
 func _test_boss_table() -> void:

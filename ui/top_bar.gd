@@ -50,7 +50,7 @@ func _ready() -> void:
 	var center: HBoxContainer = HBoxContainer.new()
 	center.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	row.add_child(center)
-	_timer_label = UiKit.label("1:30", UiConfig.TIMER_FONT_SIZE, Color.WHITE)
+	_timer_label = UiKit.label("2:00", UiConfig.TIMER_FONT_SIZE, Color.WHITE)
 	_timer_label.custom_minimum_size = Vector2(78, 0)
 	_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	center.add_child(_timer_label)

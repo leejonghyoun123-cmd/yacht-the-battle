@@ -49,6 +49,7 @@ func _ready() -> void:
 
 	var roll: Control = _make_screen("roll", "res://ui/roll_ui.gd")
 	roll.connect("placement_requested", func() -> void: show_screen("barracks"))
+	roll.connect("shop_requested", func() -> void: show_screen("shop"))
 
 	var shop: Control = _make_screen("shop", "res://ui/shop_ui.gd")
 	shop.connect("back_requested", func() -> void: show_screen("barracks"))
@@ -133,14 +134,14 @@ func _refresh_preview() -> void:
 func _on_battle_requested() -> void:
 	var sim: BattleSimulation = session.start_battle()
 	if sim != null:
-		view.call("start_battle", sim, 0)
+		_start_battle_view(sim)
 
 
 ## 준비 시간 만료: 자동 굴림·기록·배치 후 전투
 func _on_timer_expired() -> void:
 	var sim: BattleSimulation = session.auto_finalize()
 	if sim != null:
-		view.call("start_battle", sim, 0)
+		_start_battle_view(sim)
 
 
 func _on_battle_finished(_result: BattleResult) -> void:
@@ -164,7 +165,7 @@ func _build_settle_panel() -> void:
 	_settle_panel.add_child(box)
 	_settle_label = UiKit.label("", 17)
 	box.add_child(_settle_label)
-	_settle_button = UiKit.button("유닛배치로", 18)
+	_settle_button = UiKit.button("주사위 테이블로", 18)
 	_settle_button.pressed.connect(_on_settle_confirmed)
 	box.add_child(_settle_button)
 
@@ -195,7 +196,7 @@ func _show_settlement(summary: Dictionary) -> void:
 		lines.append("★ 15라운드 클리어! ★" if session.player.hp > 0 and won else "게임 오버")
 		_settle_button.text = "처음부터 다시"
 	else:
-		_settle_button.text = "유닛배치로 (%dR)" % session.get_round()
+		_settle_button.text = "주사위 테이블로 (%dR)" % session.get_round()
 	_settle_label.text = "\n".join(lines)
 	_settle_panel.visible = true
 
@@ -207,3 +208,10 @@ func _on_settle_confirmed() -> void:
 	session.return_to_barracks()
 	# 전투가 끝나면 다음 라운드 주사위 테이블로
 	show_screen("roll")
+
+
+## 전투 화면 시작 (왼쪽 위에 라운드·골드·체력 표시)
+func _start_battle_view(sim: BattleSimulation) -> void:
+	var p: PlayerState = session.player
+	view.call("set_player_info", session.get_round(), p.gold, p.hp, p.max_hp)
+	view.call("start_battle", sim, 0)

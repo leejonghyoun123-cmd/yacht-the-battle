@@ -69,7 +69,7 @@ const BAG_TIERS: Array[Dictionary] = [
 ]
 
 # --- 준비 시간 타이머 ---
-const PREP_TIME: float = 90.0
+const PREP_TIME: float = 120.0
 const PREP_EXTENSION: float = 30.0
 
 

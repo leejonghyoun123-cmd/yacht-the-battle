@@ -62,15 +62,23 @@ func _gui_input(event: InputEvent) -> void:
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed and enabled and not _dragging:
 			_dragging = true
 			_grab_offset = mb.position
+			_mouse_vp = mb.global_position
 			mouse_default_cursor_shape = Control.CURSOR_DRAG
 			grabbed.emit()
 			accept_event()
 
 
 ## 컵 밖에서 버튼을 놓아도 감지하도록 전역 입력으로 처리
+## 마우스 위치는 "현재 마우스 위치" 조회 대신 실제 입력 이벤트 좌표로 추적한다
+## (리게임 직후 등 화면 쪽 마우스 위치가 늦게 갱신되면 컵이 커서에서 어긋나는 문제 방지)
+var _mouse_vp: Vector2 = Vector2.ZERO
+
+
 func _input(event: InputEvent) -> void:
 	if not _dragging:
 		return
+	if event is InputEventMouseMotion:
+		_mouse_vp = (event as InputEventMouseMotion).position
 	if event is InputEventMouseButton:
 		var mb: InputEventMouseButton = event
 		if mb.button_index == MOUSE_BUTTON_LEFT and not mb.pressed:
@@ -87,7 +95,7 @@ func _process(delta: float) -> void:
 	_shake_time += delta
 	# 커서를 따라다니며 흔들림
 	var parent_ctrl: Control = get_parent() as Control
-	var mouse_local: Vector2 = parent_ctrl.get_local_mouse_position() if parent_ctrl != null else get_global_mouse_position()
+	var mouse_local: Vector2 = parent_ctrl.get_global_transform_with_canvas().affine_inverse() * _mouse_vp if parent_ctrl != null else _mouse_vp
 	var shake: Vector2 = Vector2(_rng.randf_range(-SHAKE_AMOUNT, SHAKE_AMOUNT), _rng.randf_range(-SHAKE_AMOUNT, SHAKE_AMOUNT))
 	position = mouse_local - _grab_offset + shake
 	rotation = sin(_shake_time * 38.0) * 0.12

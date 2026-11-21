@@ -156,6 +156,7 @@ func _set_state(s: ViewState) -> void:
 
 func _process(delta: float) -> void:
 	_state_time += delta
+	_tick_spawn_anims(delta)
 	_whistle_flash = maxf(0.0, _whistle_flash - delta)
 	match view_state:
 		ViewState.OPEN_GATES:
@@ -305,14 +306,14 @@ func _draw() -> void:
 	for u: BattleUnit in sim.units:
 		if u.alive and u.tier >= 2:
 			var aura: Color = TIER_COLORS[u.tier - 1]
-			draw_circle(to_screen(u.pos), u.radius * 1.9, Color(aura, 0.22))
+			draw_circle(to_screen(_spawn_display_pos(u)), u.radius * 1.9, Color(aura, 0.22))
 	# 유닛 본체: 병과 색 + 팀 색 테두리 (+ 티어 색 고리)
 	for u: BattleUnit in sim.units:
 		if not u.alive:
 			continue
 		if deploying and u.pos.distance_squared_to(u.home) > 1.0 and not _inside_barracks(u):
 			continue
-		var p: Vector2 = to_screen(u.pos)
+		var p: Vector2 = to_screen(_spawn_display_pos(u))
 		draw_circle(p, u.radius, u.data.color)
 		draw_arc(p, u.radius + 1.0, 0.0, TAU, 16, TEAM_COLORS[u.team], 2.0)
 		if u.tier >= 2:
@@ -341,6 +342,7 @@ func _draw() -> void:
 				draw_line(dp + Vector2(-s, s), dp + Vector2(s, -s), c, 1.5)
 	# 준비 단계: 칸 강조·이름표 (유닛 위에 겹쳐도 읽히도록 외곽선 글씨)
 	_draw_barracks_overlay()
+	_draw_spawn_bursts()
 
 
 # =========================================================================
@@ -366,6 +368,56 @@ func set_barracks_overlay(labels: Array[String], marks: Array[int]) -> void:
 	queue_redraw()
 
 
+## 칸 중심의 화면(UI) 좌표 — 주사위가 칸으로 날아가는 연출용
+func cell_screen_position(cell_index: int) -> Vector2:
+	return get_viewport().get_canvas_transform() * to_screen(BattleSimulation.barracks_cell_center(viewer_team, cell_index))
+
+
+const SPAWN_ANIM_TIME: float = 0.45
+## 칸별 "팡!" 소환 연출 경과 시간
+var _spawn_anims: Dictionary = {}
+
+
+## 주사위가 칸에 떨어지면: 팡 터지며 유닛들이 칸 중심에서 각자 자리로 흩어진다
+func play_cell_spawn(cell_index: int) -> void:
+	_spawn_anims[cell_index] = 0.0
+	queue_redraw()
+
+
+func _tick_spawn_anims(delta: float) -> void:
+	if _spawn_anims.is_empty():
+		return
+	for k: int in _spawn_anims.keys():
+		_spawn_anims[k] = float(_spawn_anims[k]) + delta
+		if _spawn_anims[k] > SPAWN_ANIM_TIME + 0.2:
+			_spawn_anims.erase(k)
+	queue_redraw()
+
+
+## 소환 연출 중인 칸의 유닛 표시 위치 (칸 중심 → 자기 자리)
+func _spawn_display_pos(u: BattleUnit) -> Vector2:
+	if view_state != ViewState.IDLE or u.team != viewer_team or not _spawn_anims.has(u.cell_index):
+		return u.pos
+	var t: float = clampf(float(_spawn_anims[u.cell_index]) / SPAWN_ANIM_TIME, 0.0, 1.0)
+	var eased: float = 1.0 - pow(1.0 - t, 3.0)
+	var center: Vector2 = BattleSimulation.barracks_cell_center(viewer_team, u.cell_index)
+	return center.lerp(u.pos, eased)
+
+
+func _draw_spawn_bursts() -> void:
+	for k: int in _spawn_anims.keys():
+		var t: float = clampf(float(_spawn_anims[k]) / SPAWN_ANIM_TIME, 0.0, 1.0)
+		var c: Vector2 = to_screen(BattleSimulation.barracks_cell_center(viewer_team, k))
+		var a: float = 1.0 - t
+		draw_circle(c, 18.0 + 70.0 * t, Color(1.0, 0.9, 0.5, 0.35 * a))
+		draw_arc(c, 18.0 + 80.0 * t, 0.0, TAU, 32, Color(1, 1, 1, 0.8 * a), 3.0)
+		for i: int in range(10):
+			var ang: float = TAU * float(i) / 10.0
+			var r0: float = 20.0 + 60.0 * t
+			var dir: Vector2 = Vector2(cos(ang), sin(ang) * 0.5)
+			draw_line(c + dir * r0, c + dir * (r0 + 14.0), Color(1.0, 0.85, 0.4, a), 2.5)
+
+
 ## 화면 좌표(마우스) → 내 연병장 칸 번호 (-1 = 칸 밖)
 func barracks_cell_at(world_pos: Vector2) -> int:
 	var logical: Vector2 = Vector2((world_pos.x + 2.0 * world_pos.y) * 0.5, (2.0 * world_pos.y - world_pos.x) * 0.5)
@@ -383,7 +435,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not pick_enabled or view_state != ViewState.IDLE:
 		return
 	if event is InputEventMouseMotion:
-		var h: int = barracks_cell_at(get_global_mouse_position())
+		var h: int = barracks_cell_at(_event_world_pos(event as InputEventMouse))
 		if h != _hover_cell:
 			_hover_cell = h
 			barracks_cell_hovered.emit(h)
@@ -391,7 +443,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton:
 		var mb: InputEventMouseButton = event
 		if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
-			var cell: int = barracks_cell_at(get_global_mouse_position())
+			var cell: int = barracks_cell_at(_event_world_pos(mb))
 			if cell >= 0:
 				barracks_cell_clicked.emit(cell)
 				get_viewport().set_input_as_handled()
@@ -423,12 +475,14 @@ func _draw_barracks_overlay() -> void:
 			continue
 		var p: Vector2 = to_screen(c + Vector2(-half * 0.55, -half * 0.55))
 		var lines: PackedStringArray = text.split("\n")
+		# 이름표: 병과 이름(흰색 크게) / 인원(노란색) — 두꺼운 외곽선으로 유닛 위에서도 잘 보이게
 		for li: int in range(lines.size()):
-			var fs: int = 15 if li == 0 else 13
+			var fs: int = 19 if li == 0 else 17
+			var col: Color = Color.WHITE if li == 0 else Color("ffe08a")
 			var w: float = font.get_string_size(lines[li], HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-			var pos: Vector2 = p + Vector2(-w * 0.5, float(li) * 16.0)
-			draw_string_outline(font, pos, lines[li], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 4, Color(0, 0, 0, 0.85))
-			draw_string(font, pos, lines[li], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
+			var pos: Vector2 = p + Vector2(-w * 0.5, float(li) * 20.0)
+			draw_string_outline(font, pos, lines[li], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 6, Color(0, 0, 0, 0.92))
+			draw_string(font, pos, lines[li], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
 
 
 ## 연출 중(문 열리기 전)에는 연병장 안 유닛만 보여 준다
@@ -452,23 +506,49 @@ func _build_hud() -> void:
 	_hud_layer = layer
 	add_child(layer)
 	var root: Control = Control.new()
-	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(root)
 
+	# 상단 한 줄: 왼쪽 = 라운드·골드·체력·병력 / 가운데 = 전투 진행·타이머 / 오른쪽 끝 = 배속·스킵
+	var margin: MarginContainer = MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side: String in ["left", "right", "top"]:
+		margin.add_theme_constant_override("margin_" + side, 10)
+	root.add_child(margin)
+	var top: HBoxContainer = HBoxContainer.new()
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.add_child(top)
+
 	var info: VBoxContainer = VBoxContainer.new()
-	info.position = Vector2(12, 10)
-	root.add_child(info)
-	_phase_label = _label("", 22, Color("f2c14e"))
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.add_child(info)
+	var player_row: HBoxContainer = HBoxContainer.new()
+	player_row.add_theme_constant_override("separation", 6)
+	info.add_child(player_row)
+	_player_round_label = _label("", 16, Color.WHITE)
+	player_row.add_child(_player_round_label)
+	player_row.add_child((load("res://ui/widgets/stat_icon.gd") as GDScript).new().call("setup", "coin", 20.0))
+	_player_gold_label = _label("", 16, Color("ffe08a"))
+	player_row.add_child(_player_gold_label)
+	player_row.add_child((load("res://ui/widgets/stat_icon.gd") as GDScript).new().call("setup", "heart", 20.0))
+	_player_hp_gauge = (load("res://ui/widgets/hp_gauge.gd") as GDScript).new()
+	_player_hp_gauge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	player_row.add_child(_player_hp_gauge)
 	_hud_label = _label("", 15, Color.WHITE)
-	info.add_child(_phase_label)
 	info.add_child(_hud_label)
 
+	_phase_label = _label("", 26, Color("f2c14e"))
+	_phase_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_phase_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(_phase_label)
+
 	var speed_box: HBoxContainer = HBoxContainer.new()
-	speed_box.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	speed_box.position = Vector2(-320, 10)
-	speed_box.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	root.add_child(speed_box)
+	speed_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	speed_box.alignment = BoxContainer.ALIGNMENT_END
+	top.add_child(speed_box)
 	for s: int in [1, 2, 4]:
 		var b: Button = Button.new()
 		b.text = "%d배속" % s
@@ -511,6 +591,20 @@ func _build_hud() -> void:
 		_result_panel.visible = false
 		battle_finished.emit(sim.result))
 	box.add_child(ok)
+
+
+var _player_round_label: Label
+var _player_gold_label: Label
+var _player_hp_gauge: Control
+
+
+## 전투 화면 왼쪽 위 플레이어 정보 (GameRoot가 전투 시작 시 넘겨 준다)
+func set_player_info(round_number: int, gold: int, hp: int, max_hp: int) -> void:
+	if _player_round_label == null:
+		return
+	_player_round_label.text = "라운드 %d / %d" % [round_number, LevelTable.FINAL_ROUND]
+	_player_gold_label.text = NumberFormatter.format_num(gold)
+	_player_hp_gauge.call("set_values", hp, max_hp, 0)
 
 
 func _update_hud() -> void:
@@ -569,3 +663,9 @@ func _label(text: String, font_size: int, color: Color) -> Label:
 	l.add_theme_color_override("font_outline_color", Color.BLACK)
 	l.add_theme_constant_override("outline_size", 4)
 	return l
+
+
+## 입력 이벤트의 화면 좌표 → 월드 좌표 (카메라 반영). "현재 마우스 위치" 조회 대신 이벤트 좌표를 써서
+## 리게임 직후 등 마우스 위치 갱신이 늦을 때 엉뚱한 칸이 눌리는 문제를 막는다.
+func _event_world_pos(event: InputEventMouse) -> Vector2:
+	return get_viewport().get_canvas_transform().affine_inverse() * event.position

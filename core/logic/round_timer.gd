@@ -1,6 +1,6 @@
 class_name RoundTimer
 extends RefCounted
-## 준비 시간 타이머 (기본 1분 30초, 라운드당 1회 30초 연장).
+## 준비 시간 타이머 (기본 2분, 라운드당 1회 30초 연장).
 ## 실제 시간은 화면이 tick(delta)으로 넘겨준다. 0이 되면 expired 1회 발생.
 
 signal expired

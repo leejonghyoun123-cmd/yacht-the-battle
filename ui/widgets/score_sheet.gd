@@ -47,7 +47,7 @@ func update_sheet(flow: RoundFlow, board: YachtBoard) -> void:
 	if _rows == null:
 		return
 	_title.text = "기록지 · %dR" % flow.round_number
-	_sub.text = "프레스티지 %d · 보상 ×%d · %d/10칸" % [board.prestige_level, board.get_reward_multiplier(), board.recorded.size()]
+	_sub.text = "프레스티지 %d · 보상 ×%d · %d/%d칸" % [board.prestige_level, board.get_reward_multiplier(), board.recorded.size(), YachtBoard.Category.size()]
 	for c: Node in _rows.get_children():
 		_rows.remove_child(c)
 		c.queue_free()
@@ -56,12 +56,20 @@ func update_sheet(flow: RoundFlow, board: YachtBoard) -> void:
 	var can_record: bool = flow.phase == RoundFlow.Phase.ROLLING
 	var total: int = 0
 	for category: int in YachtBoard.Category.values():
-		if category == YachtBoard.Category.FOUR_OF_A_KIND:
+		if category == YachtBoard.Category.CHOICE:
+			_rows.add_child(_section("초이스 (1의 자리 전부의 합)"))
+		elif category == YachtBoard.Category.FOUR_OF_A_KIND:
 			_rows.add_child(_section("하단 (족보)"))
 		var recorded: bool = board.is_recorded(category)
 		if recorded:
 			total += int(board.recorded[category])
 		_rows.add_child(_row(category, recorded, int(board.recorded.get(category, 0)), preview, can_record))
+		# 에이스|투, 쓰리|포 사이 검은 선
+		if category == YachtBoard.Category.ACES or category == YachtBoard.Category.THREES:
+			var line: ColorRect = ColorRect.new()
+			line.color = HEADER
+			line.custom_minimum_size = Vector2(0, 2)
+			_rows.add_child(line)
 	_total.text = "이번 사이클 합계  %s원" % NumberFormatter.format_num(total)
 
 
@@ -101,7 +109,7 @@ func _row(category: int, recorded: bool, recorded_gold: int, preview: Dictionary
 
 func _cell(fill: Color, width: int) -> PanelContainer:
 	var p: PanelContainer = PanelContainer.new()
-	p.custom_minimum_size = Vector2(width, 24)
+	p.custom_minimum_size = Vector2(width, 27)
 	var sb: StyleBoxFlat = StyleBoxFlat.new()
 	sb.bg_color = fill
 	sb.border_color = PAPER_LINE

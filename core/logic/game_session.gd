@@ -51,7 +51,7 @@ func _init(seed_value: int = 0) -> void:
 
 ## 상점 (연병장에서 이동)
 var shop: ShopState
-## 준비 시간 타이머 (1분 30초 + 1회 30초 연장). 화면이 tick을 넘겨주고, 만료 시 auto_finalize 호출.
+## 준비 시간 타이머 (2분 + 1회 30초 연장). 화면이 tick을 넘겨주고, 만료 시 auto_finalize 호출.
 var timer: RoundTimer
 
 
@@ -174,7 +174,15 @@ func can_place(summon_index: int, unit_id: StringName, cell_index: int) -> bool:
 		return false
 	if summons[summon_index]["placed"]:
 		return false
+	if not can_use_unit(summon_index, unit_id):
+		return false
 	return board.can_place(cell_index, unit_id)
+
+
+## 이 주사위로 이 병과를 배치할 수 있는가. 거인·킹은 포커카드(에이스) 전용이라
+## 포커카드 성질이 생기기 전까지 일반 주사위에서는 항상 불가.
+func can_use_unit(_summon_index: int, unit_id: StringName) -> bool:
+	return not UnitCatalog.is_poker_only(unit_id)
 
 
 func place(summon_index: int, unit_id: StringName, cell_index: int) -> bool:
