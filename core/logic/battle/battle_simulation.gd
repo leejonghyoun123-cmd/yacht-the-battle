@@ -62,7 +62,9 @@ func setup(team_packets: Array, seed_value: int) -> void:
 				var u: BattleUnit = BattleUnit.new()
 				u.setup(next_id, team, packet.cell_index, packet.unit_data, ratio, packet.is_consumable)
 				u.home = center + offsets[i]
-				u.pos = gate_position(team) + Vector2(_rng.randf_range(-30.0, 30.0), _rng.randf_range(-80.0, 80.0))
+				# 연병장 안(문 뒤쪽)에서 출발
+				var behind: float = -_rng.randf_range(15.0, 190.0) * team_direction(team)
+				u.pos = gate_position(team) + Vector2(behind, _rng.randf_range(-150.0, 150.0))
 				u.retarget_timer = BattleRules.RETARGET_INTERVAL * float(next_id % 8) / 8.0
 				units.append(u)
 				next_id += 1
