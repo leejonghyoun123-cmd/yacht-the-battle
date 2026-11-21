@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Yacht The Battle"
-run/main_scene="uid://bujrmhapmwr7o"
+run/main_scene="uid://bicmigrcuhtxf"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
 

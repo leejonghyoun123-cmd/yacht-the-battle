@@ -16,6 +16,7 @@ const GATE_OPEN_TIME: float = 0.7
 const INTRO_HOLD_TIME: float = 0.8
 const FIELD_ZOOM: float = 0.62
 const BARRACKS_ZOOM: float = 1.0
+const BARRACKS_SCREEN_SHIFT: Vector2 = Vector2(-230.0, 0.0)
 const MAX_EFFECTS: int = 400
 
 const COLOR_GROUND: Color = Color("2e3a2c")
@@ -117,7 +118,8 @@ func set_hud_visible(value: bool) -> void:
 func _focus_barracks() -> void:
 	if _camera == null:
 		return
-	_camera.position = to_screen(BattleSimulation.gate_position(viewer_team) + Vector2(-90.0 * BattleSimulation.team_direction(viewer_team), 0.0))
+	# 왼쪽 준비 UI 패널에 가리지 않도록 연병장을 화면 오른쪽으로 조금 비켜 보여 준다
+	_camera.position = to_screen(BattleSimulation.barracks_center(viewer_team)) + BARRACKS_SCREEN_SHIFT
 	_camera.zoom = Vector2.ONE * BARRACKS_ZOOM
 
 
@@ -264,25 +266,32 @@ func _draw_floor(canvas: Node2D) -> void:
 func _draw_barracks(canvas: Node2D, team: int) -> void:
 	var dir: float = BattleSimulation.team_direction(team)
 	var gate: Vector2 = BattleSimulation.gate_position(team)
-	var center: Vector2 = gate + Vector2(-110.0 * dir, 0.0)
-	var outer: PackedVector2Array = _rect_points(center, Vector2(110.0, 190.0))
-	canvas.draw_colored_polygon(outer, COLOR_BARRACKS)
-	outer.append(outer[0])
-	canvas.draw_polyline(outer, COLOR_WALL, 6.0)
-	# 연병장 바닥 3x3 (야추다이스 틀)
-	for row: int in range(3):
-		for col: int in range(3):
-			var cc: Vector2 = center + Vector2(float(row - 1) * 60.0 * dir, float(col - 1) * 100.0 * dir)
-			var p: PackedVector2Array = _rect_points(cc, Vector2(26.0, 46.0))
-			p.append(p[0])
-			canvas.draw_polyline(p, Color(1, 1, 1, 0.12), 1.0)
-	# 문: 닫힘 → 양쪽으로 열림
-	var opening: float = 70.0 * (1.0 - _gate_open)
+	var center: Vector2 = BattleSimulation.barracks_center(team)
+	var half: float = BattleSimulation.BARRACKS_HALF
+	canvas.draw_colored_polygon(_rect_points(center, Vector2(half, half)), COLOR_BARRACKS)
+	# 연병장 바닥 3x3 (필드 배치판과 같은 칸 배치 — 병력이 이 자리에 정렬해 서 있다)
+	var half_cell: float = BattleSimulation.CELL_SIZE * 0.5 - 3.0
+	for idx: int in range(BoardState.CELL_COUNT):
+		var cc: Vector2 = BattleSimulation.barracks_cell_center(team, idx)
+		var is_stack: bool = BoardState.col_of(idx) == BoardState.STACK_COLUMN
+		var p: PackedVector2Array = _rect_points(cc, Vector2(half_cell, half_cell))
+		canvas.draw_colored_polygon(p, COLOR_STACK_CELL if is_stack else COLOR_CONSUME_CELL)
+		p.append(p[0])
+		canvas.draw_polyline(p, Color(1, 1, 1, 0.15), 1.0)
+	# 벽: 뒤·양옆 (앞쪽은 문)
+	var back: float = center.x - half * dir
+	var wall: PackedVector2Array = PackedVector2Array([
+		to_screen(Vector2(gate.x, -half * dir)), to_screen(Vector2(back, -half * dir)),
+		to_screen(Vector2(back, half * dir)), to_screen(Vector2(gate.x, half * dir)),
+	])
+	canvas.draw_polyline(wall, COLOR_WALL, 7.0)
+	# 문: 앞면 전체가 두 짝 문. 닫힘 → 양옆으로 밀려 열림
+	var door: float = half * (1.0 - _gate_open)
 	var gate_color: Color = COLOR_GATE.lerp(Color(COLOR_GATE, 0.25), _gate_open)
-	canvas.draw_line(to_screen(gate + Vector2(0.0, -70.0)), to_screen(gate + Vector2(0.0, -70.0 + opening)), gate_color, 9.0)
-	canvas.draw_line(to_screen(gate + Vector2(0.0, 70.0)), to_screen(gate + Vector2(0.0, 70.0 - opening)), gate_color, 9.0)
-	canvas.draw_circle(to_screen(gate + Vector2(0.0, -78.0)), 9.0, COLOR_WALL)
-	canvas.draw_circle(to_screen(gate + Vector2(0.0, 78.0)), 9.0, COLOR_WALL)
+	canvas.draw_line(to_screen(gate + Vector2(0.0, -half)), to_screen(gate + Vector2(0.0, -half + door)), gate_color, 9.0)
+	canvas.draw_line(to_screen(gate + Vector2(0.0, half)), to_screen(gate + Vector2(0.0, half - door)), gate_color, 9.0)
+	canvas.draw_circle(to_screen(gate + Vector2(0.0, -half)), 10.0, COLOR_WALL)
+	canvas.draw_circle(to_screen(gate + Vector2(0.0, half)), 10.0, COLOR_WALL)
 
 
 func _draw() -> void:

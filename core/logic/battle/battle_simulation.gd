@@ -20,6 +20,9 @@ const CELL_SIZE: float = 110.0
 const BOARD_CENTER_X: float = 260.0
 ## 연병장 문 위치 (각 팀 배치판 뒤쪽)
 const GATE_X: float = 720.0
+## 문에서 연병장 중심까지 거리 (연병장 안에도 3x3 칸이 필드와 같은 크기로 있다)
+const BARRACKS_DEPTH: float = 190.0
+const BARRACKS_HALF: float = 185.0
 const RUN_SPEED: float = 240.0
 ## 공간 분할 격자 크기 (가까운 적 탐색 가속)
 const GRID_SIZE: float = 64.0
@@ -62,9 +65,8 @@ func setup(team_packets: Array, seed_value: int) -> void:
 				var u: BattleUnit = BattleUnit.new()
 				u.setup(next_id, team, packet.cell_index, packet.unit_data, ratio, packet.is_consumable)
 				u.home = center + offsets[i]
-				# 연병장 안(문 뒤쪽)에서 출발
-				var behind: float = -_rng.randf_range(15.0, 190.0) * team_direction(team)
-				u.pos = gate_position(team) + Vector2(behind, _rng.randf_range(-150.0, 150.0))
+				# 연병장 안에서도 배치한 칸 그대로 정렬해 서 있다가, 대형을 유지한 채 필드로 행군한다
+				u.pos = barracks_cell_center(team, packet.cell_index) + offsets[i]
 				u.retarget_timer = BattleRules.RETARGET_INTERVAL * float(next_id % 8) / 8.0
 				units.append(u)
 				next_id += 1
@@ -90,6 +92,17 @@ static func cell_center(team: int, cell_index: int) -> Vector2:
 
 static func gate_position(team: int) -> Vector2:
 	return Vector2(-GATE_X * team_direction(team), 0.0)
+
+
+## 연병장 중심 (문 뒤쪽)
+static func barracks_center(team: int) -> Vector2:
+	return Vector2(-(GATE_X + BARRACKS_DEPTH) * team_direction(team), 0.0)
+
+
+## 연병장 안의 칸 중심: 필드 배치판을 그대로 연병장으로 평행 이동한 위치
+static func barracks_cell_center(team: int, cell_index: int) -> Vector2:
+	var shift: float = -(GATE_X + BARRACKS_DEPTH - BOARD_CENTER_X) * team_direction(team)
+	return cell_center(team, cell_index) + Vector2(shift, 0.0)
 
 
 ## 칸 안 사각 대형 오프셋 (50명 → 8x7 격자, 거인 1~3명 → 칸 중앙 일렬)
