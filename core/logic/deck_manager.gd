@@ -38,6 +38,7 @@ func can_edit() -> bool:
 func lock() -> void:
 	if not is_deck_locked:
 		is_deck_locked = true
+		enchants_released = false
 		# 이번 라운드에 굴린 주사위 기록 (이 주사위들의 인첸트는 라운드가 끝날 때까지 고정)
 		rolled_dice = active.duplicate()
 		lock_changed.emit(true)
@@ -46,6 +47,7 @@ func lock() -> void:
 func unlock() -> void:
 	if is_deck_locked:
 		is_deck_locked = false
+		enchants_released = false
 		rolled_dice.clear()
 		lock_changed.emit(false)
 
@@ -59,6 +61,26 @@ func can_edit_dice(dice: DiceInstance) -> bool:
 	return dice != null and not rolled_dice.has(dice)
 
 
+## 기록지에 기록하면 이번 라운드 굴림이 끝난 것이므로 인첸트 잠금을 푼다 (주사위 교체 잠금은 유지)
+var enchants_released: bool = false
+
+
+func release_enchant_lock() -> void:
+	if not enchants_released:
+		enchants_released = true
+		deck_changed.emit()
+
+
+## 이 주사위의 인첸트를 장착·해제·이동할 수 있는가: 굴리지 않은 주사위이거나, 이미 기록을 마친 뒤
+func can_edit_enchants(dice: DiceInstance) -> bool:
+	return dice != null and (enchants_released or not rolled_dice.has(dice))
+
+
+## 굴리는 중(기록 전)이라 인첸트가 잠긴 상태인가
+func is_enchant_locked_by_rolling() -> bool:
+	return is_deck_locked and not enchants_released
+
+
 ## 활성+예비 전체 주사위
 func all_dice() -> Array[DiceInstance]:
 	var result: Array[DiceInstance] = active.duplicate()
@@ -70,7 +92,7 @@ func all_dice() -> Array[DiceInstance]:
 
 ## 인첸트 이동: 주사위 A의 슬롯 → 주사위 B의 슬롯 (대상에 인첸트가 있으면 서로 맞바꿈)
 func transfer_enchant(from_dice: DiceInstance, from_slot: int, to_dice: DiceInstance, to_slot: int) -> bool:
-	if not can_edit_dice(from_dice) or not can_edit_dice(to_dice):
+	if not can_edit_enchants(from_dice) or not can_edit_enchants(to_dice):
 		return false
 	if from_slot < 0 or from_slot >= from_dice.unlocked_slots or to_slot < 0 or to_slot >= to_dice.unlocked_slots:
 		return false
@@ -87,7 +109,7 @@ func transfer_enchant(from_dice: DiceInstance, from_slot: int, to_dice: DiceInst
 
 ## 인첸트를 빈 슬롯에 장착 (상점 구매)
 func equip_enchant(dice: DiceInstance, slot: int, instance: EnchantInstance) -> bool:
-	if not can_edit_dice(dice):
+	if not can_edit_enchants(dice):
 		return false
 	if dice.equip(instance, slot):
 		deck_changed.emit()
@@ -97,7 +119,7 @@ func equip_enchant(dice: DiceInstance, slot: int, instance: EnchantInstance) -> 
 
 ## 인첸트 제거 (판매). 제거된 인첸트 반환
 func remove_enchant(dice: DiceInstance, slot: int) -> EnchantInstance:
-	if not can_edit_dice(dice):
+	if not can_edit_enchants(dice):
 		return null
 	var removed: EnchantInstance = dice.unequip(slot)
 	if removed != null:
@@ -108,7 +130,7 @@ func remove_enchant(dice: DiceInstance, slot: int) -> EnchantInstance:
 ## 장착 가능한 빈 슬롯이 하나라도 있는가 (인첸트 구매 가능 여부)
 func has_free_enchant_slot() -> bool:
 	for d: DiceInstance in all_dice():
-		if not can_edit_dice(d):
+		if not can_edit_enchants(d):
 			continue
 		for i: int in range(d.unlocked_slots):
 			if d.slots[i] == null:
@@ -239,7 +261,7 @@ func swap_active_and_reserve() -> bool:
 
 ## 인첸트 슬롯 순서 변경 (이번 라운드에 굴린 주사위는 불가, 가방 속 주사위는 가능)
 func move_enchant(dice: DiceInstance, from: int, to: int) -> bool:
-	if not can_edit_dice(dice):
+	if not can_edit_enchants(dice):
 		return false
 	if dice.move_enchant(from, to):
 		deck_changed.emit()

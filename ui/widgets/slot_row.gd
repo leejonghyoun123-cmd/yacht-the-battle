@@ -110,7 +110,7 @@ func _slot_tooltip(i: int) -> String:
 	if i >= dice.unlocked_slots:
 		return "잠긴 슬롯\n조각칼·핸드드릴로 개방"
 	var inst: EnchantInstance = dice.slots[i]
-	var lock_note: String = "\n(이번 라운드에 굴린 주사위 — 고정)" if locked else ""
+	var lock_note: String = "\n(굴리는 중 — 기록지에 기록하면 변경 가능)" if locked else ""
 	if inst == null:
 		return "빈 슬롯 %d%s" % [i + 1, lock_note]
 	var rarity_names: Array[String] = ["일반", "고급", "희귀", "전설"]

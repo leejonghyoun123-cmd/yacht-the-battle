@@ -231,7 +231,7 @@ func refresh() -> void:
 		RoundFlow.Phase.PREP:
 			_rolls_label.text = "남은 굴리기 %d회" % (flow.get_reroll_limit() + 1)
 			_status_label.text = ("바꿀 출전 주사위를 %d개 고르세요 (%d/%d)" % [_swap_need(), _swap_picks.size(), _swap_need()]) if _swap_mode \
-				else "주사위통을 누른 채 흔들다가 놓으면 굴립니다.\n굴리기 전: [⇅ 교체]·인첸트 이동 가능 (굴린 주사위는 이번 라운드 동안 인첸트 고정)"
+				else "주사위통을 누른 채 흔들다가 놓으면 굴립니다.\n굴리기 전: [⇅ 교체]·인첸트 이동 가능 (굴린 주사위는 기록지에 기록할 때까지 인첸트 고정)"
 		RoundFlow.Phase.ROLLING:
 			_rolls_label.text = "남은 굴리기 %d회" % flow.rerolls_left
 			_status_label.text = "남길 주사위를 눌러 고정(위 선반)하고 다시 흔들어 굴리거나, 기록지의 노란 칸을 눌러 기록하세요."
@@ -265,7 +265,7 @@ func _make_active_token(index: int) -> Control:
 	token.call("setup", dice, face, value_text, Color("ffe08a"),
 		flow.phase == RoundFlow.Phase.PREP or session.can_trespass_swap(),
 		(deck.can_edit() and not deck.reserve_filled_indices().is_empty() and not _swap_mode) or session.can_trespass_swap(),
-		not deck.can_edit_dice(dice), border, _sel_slot if dice == _sel_dice else -1, false, tooltip)
+		not deck.can_edit_enchants(dice), border, _sel_slot if dice == _sel_dice else -1, false, tooltip)
 	token.set_meta("tooltip_text", _dice_tooltip(dice, result))
 	token.connect("pressed", func() -> void: _on_token_pressed(index))
 	token.connect("swap_pressed", func() -> void:
@@ -552,7 +552,7 @@ func _rebuild_bag_row() -> void:
 			continue
 		var token: Control = DieToken.new()
 		token.call("setup", d, d.get_short_name(), "교체" if picking else "", UiConfig.COLOR_SELECTED, false, false,
-			not deck.can_edit_dice(d), UiConfig.COLOR_SELECTED if picking else Color.TRANSPARENT,
+			not deck.can_edit_enchants(d), UiConfig.COLOR_SELECTED if picking else Color.TRANSPARENT,
 			_sel_slot if d == _sel_dice else -1, true, tooltip)
 		token.set_meta("tooltip_text", _dice_tooltip(d, null) + ("\n클릭: 이 주사위로 교체" if picking else ""))
 		var reserve_index: int = i

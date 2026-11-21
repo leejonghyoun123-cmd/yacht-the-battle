@@ -101,6 +101,8 @@ func record_yacht(category: int) -> bool:
 	if gold < 0:
 		return false
 	player.add_gold(gold, PlayerState.GoldSource.YACHT_BOARD)
+	# 기록 = 이번 라운드 굴림 끝 → 인첸트 변경 허용
+	deck.release_enchant_lock()
 	recorded_category = category
 	recorded_gold = gold
 	phase = Phase.RECORDED

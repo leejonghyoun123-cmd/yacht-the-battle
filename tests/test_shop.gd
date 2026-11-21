@@ -137,6 +137,17 @@ func _test_enchant_rules() -> void:
 	_check(shop.buy(e2, d0, 1) != "", "굴린 주사위에는 새 인첸트 장착 불가")
 	_eq(shop.buy(e2, bag_dice, 0), "", "가방 속(안 굴린) 주사위에는 장착 가능")
 	_check(s.deck.move_enchant(bag_dice, 0, 1), "가방 속 주사위는 굴린 뒤에도 순서 변경 가능")
+	# 기록지에 기록하면 굴린 주사위도 인첸트 변경 가능
+	s.flow.record_yacht(YachtBoard.Category.CHOICE)
+	_check(s.deck.transfer_enchant(d1, 2, d0, 0), "기록 후: 굴린 주사위 인첸트 이동 가능")
+	_check(s.deck.move_enchant(d0, 0, 2), "기록 후: 순서 변경 가능")
+	_check(shop.can_sell_enchant(d0, 2) == "", "기록 후: 굴린 주사위 인첸트 판매 가능")
+	_check(not s.deck.can_edit_dice(d0), "기록 후에도 주사위 자체(판매·성질 변환) 잠금은 유지")
+	# 굴리는 도중 빈 슬롯이 굴린 주사위에만 있으면 안내 문구
+	var s3: GameSession = _session()
+	s3.go_to_rolling()
+	s3.flow.roll()
+	_eq(s3.shop.can_buy(s3.shop.enchant_offers[0]), "주사위를 굴리는도중엔 인첸트를 변경할수없습니다", "굴리는 도중 인첸트 구매 안내 문구")
 	# 빈 슬롯이 하나도 없으면 인첸트 구매 불가
 	var s2: GameSession = _session()
 	for d: DiceInstance in s2.deck.all_dice():

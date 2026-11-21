@@ -89,8 +89,8 @@ func refresh() -> void:
 	UiKit.clear(_detail_box)
 	_detail_panel.visible = selected_dice != null
 	if selected_dice != null:
-		var locked: bool = not deck.can_edit_dice(selected_dice)
-		var hint: String = "이번 라운드에 굴린 주사위 — 인첸트 고정" if locked else "인첸트 선택 → 다른 슬롯 클릭으로 이동"
+		var locked: bool = not deck.can_edit_enchants(selected_dice)
+		var hint: String = "굴리는 중 — 기록지에 기록하면 인첸트를 바꿀 수 있습니다" if locked else "인첸트 선택 → 다른 슬롯 클릭으로 이동"
 		_detail_box.add_child(UiKit.label("%s  ·  %s" % [selected_dice.data.display_name, hint], 12, UiConfig.COLOR_DIM))
 		var big: Control = SlotRow.new()
 		big.set("show_names", true)
@@ -100,7 +100,7 @@ func refresh() -> void:
 
 
 func _dice_widget(dice: DiceInstance, caption: String) -> Control:
-	var editable: bool = session.deck.can_edit_dice(dice)
+	var editable: bool = session.deck.can_edit_enchants(dice)
 	var box: VBoxContainer = VBoxContainer.new()
 	box.add_theme_constant_override("separation", 2)
 	var ring: Color = UiConfig.COLOR_SELECTED if dice == selected_dice and selected_slot < 0 else Color.TRANSPARENT
@@ -129,7 +129,7 @@ func _dice_widget(dice: DiceInstance, caption: String) -> Control:
 
 
 func _configure_row(row: Control, dice: DiceInstance) -> void:
-	row.set("locked", not session.deck.can_edit_dice(dice))
+	row.set("locked", not session.deck.can_edit_enchants(dice))
 	row.set("highlight_empty", buy_mode)
 	row.set("selected_slot", selected_slot if dice == selected_dice else -1)
 	row.connect("slot_pressed", func(slot: int) -> void: _on_slot_pressed(dice, slot))
@@ -183,7 +183,7 @@ func _on_slot_pressed(dice: DiceInstance, slot: int) -> void:
 		_on_dice_pressed(dice)
 		return
 	if buy_mode:
-		if deck.can_edit_dice(dice) and slot < dice.unlocked_slots and dice.slots[slot] == null:
+		if deck.can_edit_enchants(dice) and slot < dice.unlocked_slots and dice.slots[slot] == null:
 			slot_target_chosen.emit(dice, slot)
 		return
 	# 인첸트를 고른 상태에서 다른 슬롯을 누르면 이동(대상에 있으면 맞바꿈)
@@ -212,7 +212,7 @@ func _dice_tooltip(dice: DiceInstance) -> String:
 	var faces: String = str(base_faces) if base_faces.size() <= 8 else "%d ~ %d" % [base_faces.min(), base_faces.max()]
 	if dice.trait_data != null:
 		faces += "\n성질: %s %s" %[dice.trait_data.display_name, dice.get_short_name()]
-	var lock_note: String = "\n이번 라운드에 굴린 주사위 — 인첸트 고정" if not session.deck.can_edit_dice(dice) else ""
+	var lock_note: String = "\n굴리는 중 — 기록지에 기록하면 인첸트를 바꿀 수 있습니다" if not session.deck.can_edit_enchants(dice) else ""
 	return "%s\n면: %s\n인첸트: %s\n판매가 %d원 (인첸트 포함)%s" % [
 		dice.data.display_name, faces, " → ".join(names) if names.size() > 0 else "없음",
 		ShopCatalog.dice_sell_value(dice), lock_note]

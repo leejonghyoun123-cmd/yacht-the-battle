@@ -11,6 +11,8 @@ signal changed
 const DICE_OFFER_COUNT: int = 4
 const TRAIT_OFFER_COUNT: int = 2
 const RANK_NAMES: Array[String] = ["C", "B", "A", "S"]
+## 굴린 뒤 기록 전에는 굴린 주사위의 인첸트를 바꿀 수 없다
+const ROLLING_ENCHANT_MESSAGE: String = "주사위를 굴리는도중엔 인첸트를 변경할수없습니다"
 const SPECIAL_OFFER_COUNT: int = 2
 const ENCHANT_OFFER_COUNT: int = 3
 
@@ -210,6 +212,8 @@ func can_buy(offer: ShopOffer) -> String:
 				return "가방에 빈칸이 없습니다"
 		ShopOffer.Kind.ENCHANT:
 			if not deck.has_free_enchant_slot():
+				if deck.is_enchant_locked_by_rolling():
+					return ROLLING_ENCHANT_MESSAGE
 				return "빈 인첸트 슬롯이 없습니다 — 인첸트를 판매해 자리를 만드세요"
 		ShopOffer.Kind.TRAIT:
 			if get_trait_targets(offer.trait_data).is_empty():
@@ -268,8 +272,8 @@ func buy(offer: ShopOffer, target_dice: DiceInstance = null, target_slot: int = 
 		return reason
 	match offer.kind:
 		ShopOffer.Kind.ENCHANT:
-			if target_dice == null or not deck.can_edit_dice(target_dice):
-				return "이번 라운드에 굴린 주사위에는 장착할 수 없습니다"
+			if target_dice == null or not deck.can_edit_enchants(target_dice):
+				return ROLLING_ENCHANT_MESSAGE
 			if target_slot < 0 or target_slot >= target_dice.unlocked_slots or target_dice.slots[target_slot] != null:
 				return "빈 슬롯을 골라 주세요"
 			player.spend_gold(offer.price)
@@ -340,8 +344,8 @@ func sell_dice(dice: DiceInstance) -> int:
 
 
 func can_sell_enchant(dice: DiceInstance, slot: int) -> String:
-	if not deck.can_edit_dice(dice):
-		return "이번 라운드에 굴린 주사위의 인첸트는 뺄 수 없습니다"
+	if not deck.can_edit_enchants(dice):
+		return ROLLING_ENCHANT_MESSAGE
 	if slot < 0 or slot >= dice.unlocked_slots or dice.slots[slot] == null:
 		return "판매할 인첸트가 없습니다"
 	return ""

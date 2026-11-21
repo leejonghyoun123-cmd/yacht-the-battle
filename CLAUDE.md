@@ -55,7 +55,7 @@
 - 테스트 스위트: test_core_logic(65), test_round_flow(42), test_battle(63, 성능 측정 포함), test_game_session(26, 15R 자동 플레이 밸런스 리포트), test_shop(68), test_placement_and_swap(17).
 - 코드로 만든 Control 루트는 `set_anchors_and_offsets_preset(FULL_RECT)`를 쓴다. `set_anchors_preset`만 쓰면 크기 0으로 남아 화면 배치가 틀어진다. 화면 구석 배치는 앵커+position 대신 컨테이너(UiKit.overlay_layout)로 한다.
 - UI 위치·크기·색은 `ui/ui_config.gd`(UiConfig)에 모은다. 기준 해상도 1280x720은 GameRoot가 코드로 설정한다 (에디터가 project.godot를 덮어쓸 수 있어 코드 쪽이 안전).
-- 상점 규칙: 식량·성벽은 매 라운드 상시 진열, 같은 라운드 재구매 시 +100원씩 비싸짐. 인첸트는 인벤토리 없이 구매 즉시 빈 슬롯에 장착. 이번 라운드에 굴린 주사위는 인첸트 고정(DeckManager.can_edit_dice).
+- 상점 규칙: 식량·성벽은 매 라운드 상시 진열, 같은 라운드 재구매 시 +100원씩 비싸짐. 인첸트는 인벤토리 없이 구매 즉시 빈 슬롯에 장착. 굴린 주사위의 인첸트는 기록지에 기록할 때까지만 고정(DeckManager.can_edit_enchants). 주사위 자체 판매·성질 변환은 라운드 끝까지 잠금(can_edit_dice).
 - 연출용 Tween은 참조를 들고 있다가 스킵·화면 전환 시 kill()한다. 남은 콜백이 나중에 상태를 다시 바꾼다.
 - 화면 확인: 창 모드(`--headless` 없이)로 SceneTree 러너를 실행해 `root.get_texture().get_image().save_png()`로 스크린샷을 찍는다.
 - 유닛배치 화면(코드상 barracks) = 배치 화면 (나인킹즈 방식). 화면 표기는 "유닛배치". 다른 병과 칸에 배치하면 확인 후 기존 유닛 자동 판매(이번 라운드 배치분은 주사위로 되돌림). 별도 배치 화면 없음.
