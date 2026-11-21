@@ -1,0 +1,12 @@
+[gd_scene format=3 uid="uid://bujrmhapmwr7o"]
+
+[ext_resource type="Script" uid="uid://dj22uir1qroi2" path="res://ui/prep_and_roll_ui.gd" id="1_s8ey2"]
+
+[node name="PrepAndRoll" type="Control" unique_id=77951027]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_s8ey2")

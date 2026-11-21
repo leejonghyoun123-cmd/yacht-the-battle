@@ -45,4 +45,5 @@
 - 테스트: `godot --headless --path . --script res://tests/test_core_logic.gd`, `res://tests/test_round_flow.gd` (실패 시 종료 코드 1).
 - 프로토타입 UI는 노드를 스크립트 코드로 생성하고, 씬에는 루트 Control + 스크립트만 둔다 (인스펙터 연결 누락 방지).
 - UI 다시 그리기는 `call_deferred`로 미룬다. 버튼 시그널 처리 중에 그 버튼을 지우면 오류 위험.
+- 에디터가 열려 있을 때 헤드리스 `--import`를 돌리면 `.godot` UID 캐시가 어긋날 수 있다("Unrecognized UID" → 메인 씬 실행 실패). 이때는 에디터에서 [프로젝트 → 현재 프로젝트 다시 불러오기].
 - 화면 확인: 창 모드(`--headless` 없이)로 SceneTree 러너를 실행해 `root.get_texture().get_image().save_png()`로 스크린샷을 찍는다.
