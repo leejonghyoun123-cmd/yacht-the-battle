@@ -62,7 +62,7 @@ func _test_flow_rules() -> void:
 	var summary: Dictionary = s.settle_battle()
 	_eq(summary["round"], 1, "1라운드 정산")
 	_eq(s.get_round(), 2, "2라운드로 진행")
-	_check(s.board.cells[0].is_empty() and s.board.cells[5].is_empty(), "소비칸 비워짐")
+	_check(not s.board.cells[0].is_empty() and not s.board.cells[5].is_empty(), "9칸 모두 중첩칸: 전투 후에도 유지")
 	_check(s.board.cells[4].count > 0, "중첩칸 유지")
 	s.return_to_barracks()
 	_eq(s.phase, GameSession.Phase.BARRACKS, "연병장으로 복귀")

@@ -240,7 +240,7 @@ func _build_prep_panel() -> void:
 		streak_text = "  ·  %d연패 중" % session.streak.loss_streak
 	_left_box.add_child(UiKit.label("유닛배치%s" % streak_text, 17, UiConfig.COLOR_ACCENT))
 	_left_box.add_child(UiKit.label(
-		"· 주사위 테이블에서 굴리고 기록하면\n  이 칸에 유닛을 배치합니다.\n· 가운데 줄 = 중첩칸(누적)\n  양옆 = 소비칸\n· 중첩칸을 누르면 판매할 수 있습니다.", 13, Color.WHITE))
+		_prep_help_text(), 13, Color.WHITE))
 
 
 ## 왼쪽: 선택한 주사위를 크게
@@ -775,3 +775,9 @@ func _on_item_use(it: ItemInstance) -> void:
 		_message.text = session.activate_item(it, v)
 		refresh.call_deferred(), CONNECT_ONE_SHOT)
 	_choice_popup.call("open", "[%s] 고르세요" % it.data.display_name, choices)
+
+
+func _prep_help_text() -> String:
+	if GameBalance.ALL_CELLS_STACK:
+		return "· 주사위 테이블에서 굴리고 기록하면\n  이 칸에 유닛을 배치합니다.\n· 9칸 모두 중첩칸: 같은 병과는\n  계속 쌓이고 전투 후에도 유지됩니다.\n· 칸을 누르면 판매할 수 있습니다."
+	return "· 주사위 테이블에서 굴리고 기록하면\n  이 칸에 유닛을 배치합니다.\n· 가운데 줄 = 중첩칸(누적)\n  양옆 = 소비칸\n· 중첩칸을 누르면 판매할 수 있습니다."

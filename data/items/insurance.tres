@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_6cw7f")
 id = &"insurance"
-display_name = "소비칸 보험 증서"
-description = "전투에서 지면 소비칸에 소환했던 인원의 40%만큼 골드 환급."
+display_name = "패배 보험 증서"
+description = "전투에서 지면 이번 라운드에 새로 소환한 인원의 40%만큼 골드 환급."
 rank = 0
-icon_text = "☂"
+icon_text = "보험"

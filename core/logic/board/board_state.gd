@@ -2,7 +2,7 @@ class_name BoardState
 extends RefCounted
 ## 3x3 배치판 (한 플레이어 또는 적군).
 ## 인덱스 = row * 3 + col.  row 0 = 후열, 1 = 중열, 2 = 전열(적과 가장 가까움)
-## col 1(가운데 세로 줄) = 중첩칸, col 0·2 = 소비칸.
+## 기본: 9칸 모두 중첩칸 (GameBalance.ALL_CELLS_STACK). false로 바꾸면 예전 방식(가운데 세로 줄만 중첩칸, 양옆 소비칸).
 
 signal board_changed
 
@@ -16,11 +16,16 @@ var retention_policy: StackRetentionPolicy = StackRetentionPolicy.new()
 var slot_modifiers: Dictionary = {}
 
 
+## 이 칸 번호가 중첩칸인가 (화면 색칠도 이 함수를 쓴다)
+static func is_stack_index(i: int) -> bool:
+	return GameBalance.ALL_CELLS_STACK or (i % SIZE) == STACK_COLUMN
+
+
 func _init() -> void:
 	for i: int in range(CELL_COUNT):
 		var c: CellState = CellState.new()
 		c.index = i
-		c.is_stack = (i % SIZE) == STACK_COLUMN
+		c.is_stack = is_stack_index(i)
 		cells.append(c)
 
 

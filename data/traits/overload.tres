@@ -8,6 +8,6 @@ final_multiplier = 2.0
 id = &"overload"
 display_name = "과부하 주사위"
 description = "최종 소환값 ×2.
-중첩칸에 놓아도 이번 라운드 한정 (승리 시 판매, 영구 누적 없음)."
+칸에 쌓이지 않는 이번 라운드 한정 병력 (승리 시 생존자 판매)."
 badge = "과부하"
 color = Color(1, 0.6509804, 0.3019608, 1)

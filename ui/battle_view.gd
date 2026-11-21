@@ -298,12 +298,12 @@ func _draw_floor(canvas: Node2D) -> void:
 	for j: int in range(-4, 5):
 		var y: float = float(j) * 50.0
 		canvas.draw_line(to_screen(Vector2(-470.0, y)), to_screen(Vector2(470.0, y)), COLOR_GRID, 1.0)
-	# 양 팀 배치판 3x3 (가운데 줄 = 중첩칸 금색, 양옆 = 소비칸 파란색)
+	# 양 팀 배치판 3x3 (중첩칸 금색, 소비칸 파란색 — 기본은 9칸 모두 중첩칸)
 	var half_cell: float = BattleSimulation.CELL_SIZE * 0.5 - 3.0
 	for team: int in range(2):
 		for idx: int in range(BoardState.CELL_COUNT):
 			var c: Vector2 = BattleSimulation.cell_center(team, idx)
-			var is_stack: bool = BoardState.col_of(idx) == BoardState.STACK_COLUMN
+			var is_stack: bool = BoardState.is_stack_index(idx)
 			var pts: PackedVector2Array = _rect_points(c, Vector2(half_cell, half_cell))
 			canvas.draw_colored_polygon(pts, COLOR_STACK_CELL if is_stack else COLOR_CONSUME_CELL)
 			pts.append(pts[0])
@@ -322,7 +322,7 @@ func _draw_barracks(canvas: Node2D, team: int) -> void:
 	var half_cell: float = BattleSimulation.CELL_SIZE * 0.5 - 3.0
 	for idx: int in range(BoardState.CELL_COUNT):
 		var cc: Vector2 = BattleSimulation.barracks_cell_center(team, idx)
-		var is_stack: bool = BoardState.col_of(idx) == BoardState.STACK_COLUMN
+		var is_stack: bool = BoardState.is_stack_index(idx)
 		var p: PackedVector2Array = _rect_points(cc, Vector2(half_cell, half_cell))
 		canvas.draw_colored_polygon(p, COLOR_STACK_CELL if is_stack else COLOR_CONSUME_CELL)
 		p.append(p[0])

@@ -29,6 +29,8 @@ var battle: BattleSimulation = null
 var inventory: Inventory = Inventory.new()
 ## 이번 전투 소비칸(+과부하) 소환 환산 인원 (소비칸 보험)
 var battle_consumable_total: int = 0
+## 이번 라운드에 새로 소환한 인원 합 (패배 보험)
+var battle_new_summon_total: int = 0
 var last_summary: Dictionary = {}
 var _board_snapshot: Array = []
 
@@ -356,6 +358,10 @@ func start_battle() -> BattleSimulation:
 	for it: ItemInstance in inventory.items:
 		it.data.modify_packets(it, mine)
 	battle_consumable_total = 0
+	battle_new_summon_total = 0
+	for sm: Dictionary in summons:
+		if sm["placed"]:
+			battle_new_summon_total = FixedNum.add(battle_new_summon_total, int(sm["amount"]))
 	for p: SpawnPacket in mine:
 		if p.is_consumable:
 			battle_consumable_total = FixedNum.add(battle_consumable_total, p.total_count)

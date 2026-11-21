@@ -9,6 +9,8 @@ const MAX_HP_CAP: int = 750
 
 # --- 라운드 경제 ---
 ## 다음 라운드로 넘어갈 때 지급하는 기본 수입
+## 배치판 9칸을 모두 중첩칸으로 (false면 가운데 세로 줄만 중첩칸, 양옆은 소비칸)
+static var ALL_CELLS_STACK: bool = true
 const ROUND_INCOME: int = 100
 const WIN_BONUS: int = 50
 ## 소비칸 판매가 (환산 1명당)

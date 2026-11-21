@@ -15,6 +15,7 @@ func _initialize() -> void:
 	_test_lovers()
 	_test_pvp()
 	_test_pools()
+	_test_insurance()
 	print("===== 결과: 통과 %d / 실패 %d =====" % [_pass_count, _fail_count])
 	quit(1 if _fail_count > 0 else 0)
 
@@ -187,3 +188,15 @@ func _eq(actual: Variant, expected: Variant, label: String) -> void:
 
 func _near(actual: float, expected: float, label: String) -> void:
 	_check(absf(actual - expected) < 0.01, label, "기대 %.3f, 실제 %.3f" % [expected, actual])
+
+
+func _test_insurance() -> void:
+	var s: GameSession = GameSession.new(71)
+	s.acquire_item(_item("insurance"))
+	s.battle_new_summon_total = 50
+	var lose: BattleResult = BattleResult.new()
+	lose.winner = 1
+	var g: int = s.player.gold
+	var it: ItemInstance = s.inventory.items[0]
+	it.data.on_settle(it, s, lose, {})
+	_eq(s.player.gold - g, 20, "패배 보험: 이번 라운드 소환 50명의 40% = 20원")

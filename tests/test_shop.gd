@@ -205,7 +205,7 @@ func _test_timer_and_auto() -> void:
 		if not sm["placed"] or sm["unit_id"] != &"sword":
 			placed_ok = false
 	_check(placed_ok, "남은 주사위는 소드로 자동 소환")
-	_check(not s.board.cells[0].is_empty() and not s.board.cells[0].is_stack, "소비칸에 소환")
+	_check(not s.board.cells[0].is_empty(), "첫 칸에 소환")
 	sim.run_to_end()
 	s.settle_battle()
 	s.return_to_barracks()

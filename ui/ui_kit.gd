@@ -103,7 +103,7 @@ static func board_grid(board: BoardState, on_cell: Callable, cell_enabled: Calla
 	var box: VBoxContainer = VBoxContainer.new()
 	box.add_theme_constant_override("separation", 3)
 	var head: HBoxContainer = HBoxContainer.new()
-	for t: String in ["소비칸", "중첩칸", "소비칸"]:
+	for t: String in (["중첩칸", "중첩칸", "중첩칸"] if GameBalance.ALL_CELLS_STACK else ["소비칸", "중첩칸", "소비칸"]):
 		var l: Label = label(t, 12, COLOR_TEXT_DIM)
 		l.custom_minimum_size = Vector2(cell_size.x, 0)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

@@ -52,7 +52,7 @@ func _traits() -> void:
 	var overload: OverloadTrait = OverloadTrait.new()
 	overload.final_multiplier = 2.0
 	_trait(overload, &"overload", "과부하 주사위", "과부하", Color("ffa64d"), B,
-		"최종 소환값 ×2.\n중첩칸에 놓아도 이번 라운드 한정 (승리 시 판매, 영구 누적 없음).")
+		"최종 소환값 ×2.\n칸에 쌓이지 않는 이번 라운드 한정 병력 (승리 시 생존자 판매).")
 
 
 func _trait(t: DiceTraitData, p_id: StringName, p_name: String, p_badge: String, p_color: Color, p_rank: int, desc: String) -> void:
@@ -182,7 +182,7 @@ func _items() -> void:
 	_item(dice_piggy, &"dice_piggy_bank", "주사위저금통", "🎲", B, 50, "매 라운드 +50원 적립. [깨기] 시 1~6배를 굴려 획득.")
 	_item(LoanSharkItem.new(), &"loan_shark", "고리대금 계약서", "₩", B, 50, "즉시 +800원. 이후 3라운드 동안 얏츠판·연승 보상의 50%를 자동 상환.", false)
 	_item(HandForgeryItem.new(), &"hand_forgery", "족보 위조권", "✎", A, 50, "스트레이트 숫자 1개 누락 허용, 4개 동일도 얏츠 인정.", false)
-	_item(InsuranceItem.new(), &"insurance", "소비칸 보험 증서", "☂", C, 50, "전투에서 지면 소비칸에 소환했던 인원의 40%만큼 골드 환급.")
+	_item(InsuranceItem.new(), &"insurance", "패배 보험 증서", "보험", C, 50, "전투에서 지면 이번 라운드에 새로 소환한 인원의 40%만큼 골드 환급.")
 	_item(BarracksCopierItem.new(), &"barracks_copier", "병영 복사기", "⎘", A, 50, "전투마다 가장 적은 중첩칸에 가장 많은 중첩칸의 30%를 임시 증원.", false)
 
 

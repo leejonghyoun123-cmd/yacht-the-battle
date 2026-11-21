@@ -178,7 +178,8 @@ func _show_settlement(summary: Dictionary) -> void:
 		lines.append("승리 보너스  +%s원" % NumberFormatter.format_num(summary["win_bonus"]))
 		if summary["streak_bonus"] > 0:
 			lines.append("%d연승 보상  +%s원" % [session.streak.win_streak, NumberFormatter.format_num(summary["streak_bonus"])])
-		lines.append("소비칸 생존 %s명 판매  +%s원" % [NumberFormatter.format_num(summary["sale_count"]), NumberFormatter.format_num(summary["sale_gold"])])
+		if int(summary["sale_count"]) > 0:
+			lines.append("이번 라운드 한정 병력(과부하·소비칸) 생존 %s명 판매  +%s원" % [NumberFormatter.format_num(summary["sale_count"]), NumberFormatter.format_num(summary["sale_gold"])])
 	elif summary.get("winner", -1) == 1:
 		var dmg_text: String = "피해  -%d" % summary["damage"]
 		if summary["damage_raw"] > summary["damage"]:
@@ -188,11 +189,11 @@ func _show_settlement(summary: Dictionary) -> void:
 			lines.append("성벽 실드가 %d 막음 → 체력 -%d" % [summary["shield_absorbed"], summary["hp_damage"]])
 		if summary["streak_bonus"] > 0:
 			lines.append("%d연패 보상  +%s원" % [session.streak.loss_streak, NumberFormatter.format_num(summary["streak_bonus"])])
-		lines.append("소비칸 병력은 사라졌습니다.")
+		lines.append("배치한 병력은 칸에 그대로 남습니다." if GameBalance.ALL_CELLS_STACK else "소비칸 병력은 사라졌습니다.")
 	elif summary.get("reason", "") == "void":
-		lines.append("더 월드: 전투 무효 — 피해 없음, 소비칸 유지")
+		lines.append("더 월드: 전투 무효 — 피해 없음")
 		lines.append("위로금  +%s원" % NumberFormatter.format_num(summary.get("void_gold", 0)))
-	# 성질·아이템 효과 알림 (유리 파괴, X병 소모, 소비칸 보험 등)
+	# 성질·아이템 효과 알림 (유리 파괴, X병 소모, 패배 보험 등)
 	for m: String in session.messages:
 		lines.append(m)
 	session.messages.clear()

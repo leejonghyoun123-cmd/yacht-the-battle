@@ -9,13 +9,20 @@ var _fail_count: int = 0
 func _initialize() -> void:
 	print("===== 야추 더 배틀 Step 3a 전투 로직 테스트 =====")
 	_test_compression()
+	_test_board_all_stack()
+	# 예전 방식(가운데 줄만 중첩칸)도 설정 하나로 돌아갈 수 있는지 계속 검사
+	GameBalance.ALL_CELLS_STACK = false
 	_test_board()
+	GameBalance.ALL_CELLS_STACK = true
 	_test_boss_rules()
 	_test_enemy_table()
 	_test_battle_basic()
 	_test_determinism()
 	_test_timeout()
+	GameBalance.ALL_CELLS_STACK = false
 	_test_settlement()
+	GameBalance.ALL_CELLS_STACK = true
+	_test_settlement_all_stack()
 	_test_performance()
 	print("===== 결과: 통과 %d / 실패 %d =====" % [_pass_count, _fail_count])
 	quit(1 if _fail_count > 0 else 0)
@@ -66,7 +73,7 @@ func _test_compression() -> void:
 
 
 func _test_board() -> void:
-	print("[배치판]")
+	print("[배치판 — 예전 방식: 가운데 줄만 중첩칸]")
 	var b: BoardState = BoardState.new()
 	_check(b.cells[1].is_stack and b.cells[4].is_stack and b.cells[7].is_stack, "가운데 세로 줄(1·4·7)이 중첩칸")
 	_check(not b.cells[0].is_stack and not b.cells[8].is_stack, "양옆 줄이 소비칸")
@@ -240,3 +247,37 @@ func _test_performance() -> void:
 	print("    %d step, 총 %.0fms, step당 %.2fms (실시간 1배속 예산: 33ms/프레임당 1step)" % [steps, ms, per_step])
 	print("    결과: 승자 팀 %d, %s, %.1f초" % [sim.result.winner, sim.result.reason, sim.result.fight_duration])
 	_check(per_step < 8.0, "step당 8ms 미만 (4배속에서도 프레임당 32ms 이내)", "%.2fms" % per_step)
+
+
+func _test_board_all_stack() -> void:
+	print("[배치판 — 기본: 9칸 모두 중첩칸]")
+	var b: BoardState = BoardState.new()
+	var all: bool = true
+	for c: CellState in b.cells:
+		all = all and c.is_stack
+	_check(all, "9칸 모두 중첩칸")
+	b.place(0, &"bow", 20)
+	_eq(b.get_stack_sell_price(0), 20 * GameBalance.STACK_SELL_PER_UNIT, "양옆 칸도 판매 가능")
+	b.clear_consumables()
+	_eq(b.cells[0].count, 20, "전투 후 비워지는 칸 없음")
+	_check(not b.get_spawn_packets()[0].is_consumable, "스폰도 중첩칸으로")
+
+
+func _test_settlement_all_stack() -> void:
+	print("[정산 — 9칸 모두 중첩칸]")
+	var player: PlayerState = PlayerState.new()
+	var streak: StreakState = StreakState.new()
+	var board: BoardState = _board_with({ 4: [&"sword", 40], 0: [&"bow", 20] })
+	var win: BattleResult = BattleResult.new()
+	win.winner = 0
+	win.survivors_by_cell = [{ 4: 30.0, 0: 12.0 }, {}]
+	var gold_before: int = player.gold
+	var s: Dictionary = BattleSettlement.settle_solo(win, player, board, streak, 1)
+	_eq(s["sale_count"], 0, "판매할 소비칸 생존자 없음")
+	_eq(player.gold - gold_before, GameBalance.WIN_BONUS, "승리 보너스만")
+	_check(board.cells[0].count == 20 and board.cells[4].count == 40, "모든 칸 유지")
+	var lose: BattleResult = BattleResult.new()
+	lose.winner = 1
+	lose.survivor_totals = [0.0, 10.0]
+	BattleSettlement.settle_solo(lose, player, board, streak, 2)
+	_check(board.cells[0].count == 20, "패배해도 칸 유지")
