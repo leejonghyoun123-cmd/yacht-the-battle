@@ -67,7 +67,7 @@ func _update() -> void:
 	_timer_label.add_theme_color_override("font_color", Color("ff6b6b") if session.timer.time_left <= UiConfig.TIMER_WARNING_SECONDS else Color.WHITE)
 	_extend_button.disabled = not session.timer.can_extend()
 	_extend_button.text = "연장됨" if session.timer.extended else "+30초"
-	var roll_tab: Button = _tabs["roll"]
-	roll_tab.text = "배치" if session.phase == GameSession.Phase.PLACEMENT else "주사위"
+	# 연병장이 곧 배치 화면: 배치 단계에서는 탭 이름으로 알려 준다
+	(_tabs["barracks"] as Button).text = "연병장 · 배치" if session.phase == GameSession.Phase.PLACEMENT else "연병장"
 	for key: String in _tabs.keys():
-		(_tabs[key] as Button).set_pressed_no_signal(key == current_screen or (key == "roll" and current_screen == "placement"))
+		(_tabs[key] as Button).set_pressed_no_signal(key == current_screen)

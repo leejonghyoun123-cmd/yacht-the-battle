@@ -41,19 +41,14 @@ func _ready() -> void:
 	_ui_layer.layer = 5
 	add_child(_ui_layer)
 
+	# 연병장 = 배치 화면 (뒤쪽 연병장 칸을 직접 클릭해 배치)
 	var barracks: Control = _make_screen("barracks", "res://ui/barracks_ui.gd")
 	barracks.connect("roll_requested", func() -> void: show_screen("roll"))
 	barracks.connect("shop_requested", func() -> void: show_screen("shop"))
+	barracks.connect("battle_requested", _on_battle_requested)
 
-	var roll: Control = (load("res://ui/prep_and_roll_ui.gd") as GDScript).new()
-	roll.set("flow", session.flow)
-	roll.set("integrated", true)
-	roll.connect("proceed_requested", func() -> void: show_screen("placement"))
-	screens["roll"] = roll
-	_ui_layer.add_child(roll)
-
-	var placement: Control = _make_screen("placement", "res://ui/placement_ui.gd")
-	placement.connect("battle_requested", _on_battle_requested)
+	var roll: Control = _make_screen("roll", "res://ui/roll_ui.gd")
+	roll.connect("placement_requested", func() -> void: show_screen("barracks"))
 
 	var shop: Control = _make_screen("shop", "res://ui/shop_ui.gd")
 	shop.connect("back_requested", func() -> void: show_screen("barracks"))
@@ -78,6 +73,7 @@ func _make_screen(key: String, path: String) -> Control:
 	var s: Control = (load(path) as GDScript).new()
 	s.set("session", session)
 	s.set("tooltip", tooltip)
+	s.set("view", view)
 	screens[key] = s
 	_ui_layer.add_child(s)
 	return s
@@ -88,13 +84,10 @@ func _process(delta: float) -> void:
 		session.timer.tick(delta)
 
 
-## 준비 화면 전환 (연병장 / 주사위 / 배치 / 상점)
+## 준비 화면 전환 (연병장(=배치) / 주사위 / 상점)
 func show_screen(key: String) -> void:
 	if not session.is_preparing():
 		return
-	# 배치 단계에서 [주사위] 탭은 배치 화면, 굴림 화면은 기록 직후에만
-	if key == "roll" and session.phase == GameSession.Phase.PLACEMENT and current_screen != "roll":
-		key = "placement"
 	current_screen = key
 	if key == "roll":
 		session.go_to_rolling()
@@ -107,7 +100,9 @@ func show_screen(key: String) -> void:
 	_settle_panel.visible = false
 	top_bar.visible = true
 	top_bar.set("current_screen", key)
-	if key == "barracks" or key == "placement":
+	# 연병장 칸 클릭은 연병장 화면에서만
+	view.set("pick_enabled", key == "barracks")
+	if key == "barracks":
 		_refresh_preview()
 	if screens[key].has_method("refresh"):
 		screens[key].call("refresh")
@@ -119,6 +114,7 @@ func _on_phase_changed(p: GameSession.Phase) -> void:
 			for k: String in screens.keys():
 				(screens[k] as Control).visible = false
 			top_bar.visible = false
+			view.set("pick_enabled", false)
 			tooltip.call("hide_tip")
 		GameSession.Phase.BARRACKS:
 			if current_screen != "barracks" and current_screen != "shop":

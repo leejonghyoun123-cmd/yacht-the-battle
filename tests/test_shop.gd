@@ -89,7 +89,13 @@ func _test_buy() -> void:
 	var hp_max: int = s.player.max_hp
 	shop.buy(shop.food)
 	_eq(s.player.max_hp, hp_max + 50, "식량축적: 최대 체력 +50")
-	_check(shop.can_buy(shop.food) != "", "식량축적은 라운드당 1회")
+	_eq(shop.food.price, GameBalance.FOOD_PRICE + GameBalance.REPEAT_PURCHASE_STEP, "식량축적 재구매 시 +100원")
+	var g2: int = s.player.gold
+	shop.buy(shop.food)
+	_eq(g2 - s.player.gold, GameBalance.FOOD_PRICE + 100, "두 번째 구매는 250원")
+	_eq(shop.food.price, GameBalance.FOOD_PRICE + 200, "세 번째는 350원")
+	shop.restock(2)
+	_eq(shop.food.price, GameBalance.FOOD_PRICE, "다음 라운드에 원래 가격")
 	s.player.gold = 0
 	_eq(shop.can_buy(shop.wall), "골드가 부족합니다", "골드 부족")
 	_check(shop.can_buy(shop.special_offers[0]) != "", "잠긴 칸(타로/아이템)은 구매 불가")

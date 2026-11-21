@@ -164,6 +164,62 @@ func remove_dice(dice: DiceInstance) -> bool:
 	return false
 
 
+## 가방 속 주사위가 들어 있는 칸 번호들
+func reserve_filled_indices() -> Array[int]:
+	var result: Array[int] = []
+	for i: int in range(reserve_unlocked):
+		if reserve[i] != null:
+			result.append(i)
+	return result
+
+
+## [▲▼] 출전 index번 자리를 가방 주사위들과 순환 교체.
+## dir > 0(▼): 가방 첫 주사위가 출전, 기존 주사위는 가방 끝으로 / dir < 0(▲): 가방 끝 주사위가 출전.
+## 계속 누르면 가방 속 주사위를 차례로 넘겨 볼 수 있다. (첫 굴림 후 불가)
+func cycle_active(index: int, dir: int) -> bool:
+	if not can_edit() or index < 0 or index >= active.size():
+		return false
+	var filled: Array[int] = reserve_filled_indices()
+	if filled.is_empty():
+		return false
+	var ring: Array[DiceInstance] = [active[index]]
+	for j: int in filled:
+		ring.append(reserve[j])
+	if dir > 0:
+		ring.append(ring.pop_front())
+	else:
+		ring.push_front(ring.pop_back())
+	active[index] = ring[0]
+	for k: int in range(filled.size()):
+		reserve[filled[k]] = ring[k + 1]
+	deck_changed.emit()
+	return true
+
+
+## [전체 교체] 가방 주사위 수만큼 고른 출전 주사위들과 맞바꾼다.
+## 가방이 5개로 가득이면 고를 필요 없이 전부(active_indices 무시).
+func swap_selected(active_indices: Array[int]) -> bool:
+	if not can_edit():
+		return false
+	var filled: Array[int] = reserve_filled_indices()
+	if filled.is_empty():
+		return false
+	if filled.size() >= active.size():
+		return swap_active_and_reserve()
+	if active_indices.size() != filled.size():
+		return false
+	for k: int in range(filled.size()):
+		var ai: int = active_indices[k]
+		if ai < 0 or ai >= active.size():
+			return false
+	for k: int in range(filled.size()):
+		var temp: DiceInstance = active[active_indices[k]]
+		active[active_indices[k]] = reserve[filled[k]]
+		reserve[filled[k]] = temp
+	deck_changed.emit()
+	return true
+
+
 ## 가방 등급에 맞춰 예비 슬롯 수 설정 (줄이지는 않음)
 func set_reserve_slots(count: int) -> void:
 	var target: int = clampi(count, reserve_unlocked, GameBalance.MAX_RESERVE_SLOTS)

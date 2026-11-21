@@ -127,6 +127,7 @@ func _make(kind: ShopOffer.Kind, price: int, title: String, desc: String) -> Sho
 	var o: ShopOffer = ShopOffer.new()
 	o.kind = kind
 	o.price = price
+	o.base_price = price
 	o.title = title
 	o.description = desc
 	return o
@@ -188,8 +189,12 @@ func buy(offer: ShopOffer, target_dice: DiceInstance = null, target_slot: int = 
 		ShopOffer.Kind.BAG:
 			player.spend_gold(offer.price)
 			deck.set_reserve_slots(int(GameBalance.BAG_TIERS[offer.bag_tier]["slots"]))
-	# 식량·성벽은 매 라운드 상시 진열되지만 라운드당 1회 구매 (다음 라운드에 다시 진열)
-	offer.sold = true
+	if offer.is_repeatable():
+		# 식량·성벽: 같은 라운드에 또 사면 점점 비싸진다 (다음 라운드에 원래 가격)
+		offer.purchase_count += 1
+		offer.price = offer.base_price + offer.purchase_count * GameBalance.REPEAT_PURCHASE_STEP
+	else:
+		offer.sold = true
 	if offer.kind == ShopOffer.Kind.BAG:
 		_refresh_bag_offer()
 	changed.emit()

@@ -338,6 +338,96 @@ func _draw() -> void:
 				var c: Color = Color(1, 0.3, 0.3, 0.8 * (1.0 - t))
 				draw_line(dp + Vector2(-s, -s), dp + Vector2(s, s), c, 1.5)
 				draw_line(dp + Vector2(-s, s), dp + Vector2(s, -s), c, 1.5)
+	# 준비 단계: 칸 강조·이름표 (유닛 위에 겹쳐도 읽히도록 외곽선 글씨)
+	_draw_barracks_overlay()
+
+
+# =========================================================================
+# 연병장 배치 (준비 단계: 연병장 칸을 직접 클릭해 유닛을 배치)
+# =========================================================================
+
+signal barracks_cell_clicked(cell_index: int)
+signal barracks_cell_hovered(cell_index: int)
+
+enum CellMark { NONE, PLACEABLE, REPLACE, BLOCKED }
+
+## 칸 클릭 허용 (준비 화면에서만 켠다)
+var pick_enabled: bool = false
+var _cell_labels: Array[String] = []
+var _cell_marks: Array[int] = []
+var _hover_cell: int = -1
+
+
+## 화면(UI)이 칸 표시 문구와 강조 상태를 넘겨준다 (뷰는 게임 규칙을 모른다)
+func set_barracks_overlay(labels: Array[String], marks: Array[int]) -> void:
+	_cell_labels = labels
+	_cell_marks = marks
+	queue_redraw()
+
+
+## 화면 좌표(마우스) → 내 연병장 칸 번호 (-1 = 칸 밖)
+func barracks_cell_at(world_pos: Vector2) -> int:
+	var logical: Vector2 = Vector2((world_pos.x + 2.0 * world_pos.y) * 0.5, (2.0 * world_pos.y - world_pos.x) * 0.5)
+	if viewer_team != 0:
+		logical = -logical
+	var half: float = BattleSimulation.CELL_SIZE * 0.5
+	for idx: int in range(BoardState.CELL_COUNT):
+		var c: Vector2 = BattleSimulation.barracks_cell_center(viewer_team, idx)
+		if absf(logical.x - c.x) <= half and absf(logical.y - c.y) <= half:
+			return idx
+	return -1
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not pick_enabled or view_state != ViewState.IDLE:
+		return
+	if event is InputEventMouseMotion:
+		var h: int = barracks_cell_at(get_global_mouse_position())
+		if h != _hover_cell:
+			_hover_cell = h
+			barracks_cell_hovered.emit(h)
+			queue_redraw()
+	elif event is InputEventMouseButton:
+		var mb: InputEventMouseButton = event
+		if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+			var cell: int = barracks_cell_at(get_global_mouse_position())
+			if cell >= 0:
+				barracks_cell_clicked.emit(cell)
+				get_viewport().set_input_as_handled()
+
+
+func _draw_barracks_overlay() -> void:
+	if view_state != ViewState.IDLE or _cell_labels.is_empty():
+		return
+	var font: Font = ThemeDB.fallback_font
+	var half: float = BattleSimulation.CELL_SIZE * 0.5 - 4.0
+	for idx: int in range(BoardState.CELL_COUNT):
+		var c: Vector2 = BattleSimulation.barracks_cell_center(viewer_team, idx)
+		var mark: int = _cell_marks[idx] if idx < _cell_marks.size() else CellMark.NONE
+		var outline: Color = Color.TRANSPARENT
+		match mark:
+			CellMark.PLACEABLE:
+				outline = UiConfig.COLOR_TARGET
+			CellMark.REPLACE:
+				outline = Color("ff9a3c")
+		if idx == _hover_cell and pick_enabled:
+			outline = UiConfig.COLOR_SELECTED if outline.a == 0.0 else outline.lightened(0.3)
+		if outline.a > 0.0:
+			var pts: PackedVector2Array = _rect_points(c, Vector2(half, half))
+			draw_colored_polygon(pts, Color(outline, 0.12))
+			pts.append(pts[0])
+			draw_polyline(pts, outline, 3.0)
+		var text: String = _cell_labels[idx] if idx < _cell_labels.size() else ""
+		if text == "":
+			continue
+		var p: Vector2 = to_screen(c + Vector2(-half * 0.55, -half * 0.55))
+		var lines: PackedStringArray = text.split("\n")
+		for li: int in range(lines.size()):
+			var fs: int = 15 if li == 0 else 13
+			var w: float = font.get_string_size(lines[li], HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			var pos: Vector2 = p + Vector2(-w * 0.5, float(li) * 16.0)
+			draw_string_outline(font, pos, lines[li], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 4, Color(0, 0, 0, 0.85))
+			draw_string(font, pos, lines[li], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
 
 
 ## 연출 중(문 열리기 전)에는 연병장 안 유닛만 보여 준다

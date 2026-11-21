@@ -46,6 +46,8 @@ const SELL_RATIO: float = 0.5
 const FOOD_PRICE: int = 150
 const FOOD_MAX_HP_BONUS: int = 50
 const WALL_PRICE: int = 100
+## 식량·성벽을 같은 라운드에 또 살 때마다 붙는 추가 가격 (라운드가 바뀌면 원래 가격)
+const REPEAT_PURCHASE_STEP: int = 100
 ## 성벽증축 임시 실드 = 기본 + 라운드 × 증가량 (해당 라운드만)
 const WALL_SHIELD_BASE: int = 20
 const WALL_SHIELD_PER_ROUND: int = 10

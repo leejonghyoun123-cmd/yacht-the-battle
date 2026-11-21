@@ -188,6 +188,50 @@ func place(summon_index: int, unit_id: StringName, cell_index: int) -> bool:
 	return true
 
 
+## 다른 병과가 있는 칸에 배치하려 할 때의 처리 미리보기 (경고창 문구용)
+## 반환: { "needed": bool, "old_unit", "sell_count", "sell_gold", "returned": 이번 라운드에 그 칸에 놓았다가 되돌아올 주사위 목록 }
+func get_replace_info(cell_index: int, unit_id: StringName) -> Dictionary:
+	var cell: CellState = board.cells[cell_index]
+	if cell.can_accept(unit_id):
+		return { "needed": false }
+	var returned: Array[int] = []
+	var this_round: int = 0
+	for i: int in range(summons.size()):
+		if summons[i]["placed"] and summons[i]["cell"] == cell_index:
+			returned.append(i)
+			this_round += int(summons[i]["value"])
+	# 이번 라운드에 놓은 인원은 판매가 아니라 주사위로 되돌리고, 이전 라운드부터 있던 인원만 판매
+	var persistent: int = maxi(0, cell.count - this_round)
+	var gold: int = persistent * GameBalance.STACK_SELL_PER_UNIT if cell.is_stack else 0
+	return {
+		"needed": true, "old_unit": cell.unit_id, "sell_count": persistent,
+		"sell_gold": gold, "returned": returned,
+	}
+
+
+## 덮어쓰기 배치: 칸의 기존 유닛을 자동 판매(이번 라운드 배치분은 주사위로 되돌림)한 뒤 새 병과를 배치
+func replace_and_place(summon_index: int, unit_id: StringName, cell_index: int) -> bool:
+	if phase != Phase.PLACEMENT or summon_index < 0 or summon_index >= summons.size():
+		return false
+	if summons[summon_index]["placed"]:
+		return false
+	var info: Dictionary = get_replace_info(cell_index, unit_id)
+	if info["needed"]:
+		for i: int in info["returned"]:
+			summons[i]["placed"] = false
+			summons[i]["unit_id"] = &""
+			summons[i]["cell"] = -1
+		board.cells[cell_index].clear()
+		if info["sell_gold"] > 0:
+			player.add_gold(info["sell_gold"], PlayerState.GoldSource.OTHER)
+		# 판매한 칸은 [배치 초기화] 시에도 되살아나지 않도록 기준 상태에서도 비운다
+		for entry: Dictionary in _board_snapshot:
+			if entry["index"] == cell_index:
+				entry["unit"] = ""
+				entry["count"] = 0
+	return place(summon_index, unit_id, cell_index)
+
+
 func next_unplaced_index() -> int:
 	for i: int in range(summons.size()):
 		if not summons[i]["placed"]:

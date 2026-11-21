@@ -13,6 +13,8 @@ var highlight_empty: bool = false
 var locked: bool = false
 var show_names: bool = false
 var tooltip: Node = null
+## 곡선 배치 깊이 (0 = 일직선, >0 = 가운데가 아래로 처지는 곡선. 주사위 UI 예시 이미지 형태)
+var arc_depth: float = 0.0
 
 var _hover: int = -1
 
@@ -22,7 +24,7 @@ func setup(p_dice: DiceInstance, p_radius: float, p_tooltip: Node) -> Control:
 	radius = p_radius
 	tooltip = p_tooltip
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	custom_minimum_size = Vector2(_slot_step() * DiceInstance.MAX_SLOTS, radius * 2.0 + 4.0 + (16.0 if show_names else 0.0))
+	custom_minimum_size = Vector2(_slot_step() * DiceInstance.MAX_SLOTS, radius * 2.0 + 4.0 + arc_depth + (16.0 if show_names else 0.0))
 	mouse_exited.connect(func() -> void:
 		_hover = -1
 		if tooltip != null:
@@ -37,7 +39,8 @@ func _slot_step() -> float:
 func _slot_center(i: int) -> Vector2:
 	var total: float = _slot_step() * DiceInstance.MAX_SLOTS
 	var start: float = (size.x - total) * 0.5 + _slot_step() * 0.5
-	return Vector2(start + _slot_step() * float(i), radius + 2.0)
+	var t: float = (float(i) - float(DiceInstance.MAX_SLOTS - 1) * 0.5) / (float(DiceInstance.MAX_SLOTS - 1) * 0.5)
+	return Vector2(start + _slot_step() * float(i), radius + 2.0 + arc_depth * (1.0 - t * t))
 
 
 func _slot_at(p: Vector2) -> int:
