@@ -1,95 +1,142 @@
 extends Control
-## 주사위 테이블 화면 (굴림·재굴림·얏츠판 기록). 주사위 UI 예시 이미지 기준:
-##   주사위 위 [▲][▼] = 가방 주사위와 순환 교체 (첫 굴림 전)
-##   주사위 아래 곡선 모양 작은 인첸트 슬롯 (선택 → 다른 슬롯 클릭으로 이동)
-##   가방 줄 + [전체 교체]: 가방 주사위가 5개 미만이면 바꿀 출전 주사위를 그 수만큼 고른다
-## 나중에 주사위를 실제로 굴리는 공간·애니메이션을 넣을 때는 _make_card()의 주사위 아이콘 부분만 교체하면 된다.
+## 주사위 테이블 화면 (예시 이미지의 배치 구조 참고, 외형은 자체 제작)
+##   왼쪽: 종이 기록지 (굴린 뒤 노란 칸을 눌러 기록·확정)
+##   가운데 위: 주사위 쟁반 — 출전(굴리는) 주사위. 굴리면 컵에서 펠트로 쏟아지고, 누르면 고정되어 위 선반으로 이동
+##   가운데 아래: 대기 주사위(가방) + [전체 교체]
+##   주사위 위 [⇅ 교체]: 가방 주사위 중 하나를 골라 교체 / 주사위 아래 곡선 인첸트 슬롯
+##   오른쪽: 보스 예고, 남은 재굴림, [굴리기], 계산 과정
+## 굴림 연출은 화면 전용 RNG를 쓰므로 게임 결과(결정론)에 영향을 주지 않는다.
 
 signal placement_requested
 
-const ItemIcon: GDScript = preload("res://ui/widgets/item_icon.gd")
-const SlotRow: GDScript = preload("res://ui/widgets/slot_row.gd")
+const DiceTray: GDScript = preload("res://ui/widgets/dice_tray.gd")
+const DieToken: GDScript = preload("res://ui/widgets/die_token.gd")
+const ScoreSheet: GDScript = preload("res://ui/widgets/score_sheet.gd")
+
+const COLOR_WOOD: Color = Color("6e4b30")
+const COLOR_WOOD_GRAIN: Color = Color("5e3f27")
+const ROLL_ANIM_TIME: float = 0.55
+const FLICKER_INTERVAL: float = 0.05
 
 var session: GameSession
 var tooltip: Node
 
-var _boss_label: Label
-var _status_label: Label
-var _cards_row: HBoxContainer
+var _sheet: PanelContainer
+var _tray: Control
 var _bag_row: HBoxContainer
-var _yacht_box: VBoxContainer
+var _boss_label: Label
+var _rolls_label: Label
+var _status_label: Label
+var _calc_label: RichTextLabel
 var _roll_button: Button
 var _place_button: Button
+var _popup: PanelContainer
+var _popup_box: VBoxContainer
 
-## 인첸트 이동용 선택
+var _tokens: Array[Control] = []
+## 굴린 주사위가 펠트에 놓인 위치 (화면 연출용)
+var _felt_pos: Array[Vector2] = []
+var _last_pos: Array[Vector2] = []
+var _vis_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+var _anim_indices: Array[int] = []
+var _flicker_time: float = 0.0
+var _flicker_tick: float = 0.0
+var _focus_index: int = 0
+
 var _sel_dice: DiceInstance = null
 var _sel_slot: int = -1
-## 전체 교체 선택 모드
 var _swap_mode: bool = false
 var _swap_picks: Array[int] = []
 
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var bg: ColorRect = ColorRect.new()
-	bg.color = Color("1b1d24")
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
+	_vis_rng.randomize()
+	var wood: Control = Control.new()
+	wood.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	wood.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wood.draw.connect(func() -> void:
+		wood.draw_rect(Rect2(Vector2.ZERO, wood.size), COLOR_WOOD)
+		for k: int in range(int(wood.size.y / 26.0) + 1):
+			var y: float = float(k) * 26.0 + float(k % 3) * 4.0
+			wood.draw_line(Vector2(0, y), Vector2(wood.size.x, y + 6.0), COLOR_WOOD_GRAIN, 2.0))
+	add_child(wood)
+
 	var margin: MarginContainer = MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for side: String in ["left", "right", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, 10)
 	margin.add_theme_constant_override("margin_top", UiConfig.TOP_BAR_HEIGHT + 8)
 	add_child(margin)
-	var main: VBoxContainer = VBoxContainer.new()
-	main.add_theme_constant_override("separation", 6)
+	var main: HBoxContainer = HBoxContainer.new()
+	main.add_theme_constant_override("separation", 12)
 	margin.add_child(main)
 
-	var boss_panel: PanelContainer = UiKit.panel(Color("3a2630"))
-	_boss_label = UiKit.label("", 13)
-	boss_panel.add_child(_boss_label)
-	main.add_child(boss_panel)
-	_status_label = UiKit.label("", 14, UiConfig.COLOR_ACCENT)
-	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	main.add_child(_status_label)
+	# 왼쪽: 기록지
+	_sheet = ScoreSheet.new()
+	_sheet.custom_minimum_size = Vector2(240, 0)
+	_sheet.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	_sheet.connect("category_pressed", func(c: int) -> void: session.flow.record_yacht(c))
+	main.add_child(_sheet)
 
-	var middle: HBoxContainer = HBoxContainer.new()
-	middle.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	middle.add_theme_constant_override("separation", 10)
-	main.add_child(middle)
-	var left: VBoxContainer = VBoxContainer.new()
-	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	middle.add_child(left)
-	_cards_row = HBoxContainer.new()
-	_cards_row.add_theme_constant_override("separation", 8)
-	_cards_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	left.add_child(_cards_row)
-	var bag_panel: PanelContainer = UiKit.panel(Color(0.16, 0.13, 0.1, 0.95))
+	# 가운데: 쟁반(위) + 대기 주사위(아래)
+	var center: VBoxContainer = VBoxContainer.new()
+	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center.add_theme_constant_override("separation", 8)
+	main.add_child(center)
+	_tray = DiceTray.new()
+	_tray.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_tray.custom_minimum_size = Vector2(0, 420)
+	_tray.resized.connect(func() -> void: _layout_tokens(false))
+	center.add_child(_tray)
+	var bag_panel: PanelContainer = UiKit.panel(Color(0.18, 0.12, 0.08, 0.92))
 	_bag_row = HBoxContainer.new()
-	_bag_row.add_theme_constant_override("separation", 10)
+	_bag_row.add_theme_constant_override("separation", 8)
 	bag_panel.add_child(_bag_row)
-	left.add_child(bag_panel)
+	center.add_child(bag_panel)
 
+	# 오른쪽: 진행
 	var right: VBoxContainer = VBoxContainer.new()
-	right.custom_minimum_size = Vector2(250, 0)
-	middle.add_child(right)
-	var yacht_panel: PanelContainer = UiKit.panel()
-	yacht_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_yacht_box = VBoxContainer.new()
-	_yacht_box.add_theme_constant_override("separation", 3)
-	yacht_panel.add_child(_yacht_box)
-	right.add_child(yacht_panel)
-	_roll_button = UiKit.button("굴림", 20)
-	_roll_button.custom_minimum_size = Vector2(0, 50)
+	right.custom_minimum_size = Vector2(220, 0)
+	right.add_theme_constant_override("separation", 8)
+	main.add_child(right)
+	var boss_panel: PanelContainer = UiKit.panel(Color("3a2630"))
+	_boss_label = UiKit.label("", 12)
+	_boss_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_boss_label.custom_minimum_size = Vector2(200, 0)
+	boss_panel.add_child(_boss_label)
+	right.add_child(boss_panel)
+	_rolls_label = UiKit.label("", 20, Color.WHITE)
+	_rolls_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	right.add_child(_rolls_label)
+	_roll_button = UiKit.button("굴리기", 22)
+	_roll_button.custom_minimum_size = Vector2(0, 60)
 	_roll_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	_roll_button.pressed.connect(func() -> void: session.flow.roll())
 	right.add_child(_roll_button)
-	_place_button = UiKit.button("연병장에서 배치하기 ▶", 16)
-	_place_button.custom_minimum_size = Vector2(0, 42)
+	_place_button = UiKit.button("연병장에서 배치하기 ▶", 15)
+	_place_button.custom_minimum_size = Vector2(0, 44)
 	_place_button.pressed.connect(func() -> void: placement_requested.emit())
 	right.add_child(_place_button)
+	_status_label = UiKit.label("", 13, UiConfig.COLOR_ACCENT)
+	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_status_label.custom_minimum_size = Vector2(200, 0)
+	right.add_child(_status_label)
+	var calc_panel: PanelContainer = UiKit.panel()
+	calc_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_calc_label = RichTextLabel.new()
+	_calc_label.bbcode_enabled = true
+	_calc_label.fit_content = true
+	_calc_label.scroll_active = false
+	_calc_label.custom_minimum_size = Vector2(200, 0)
+	_calc_label.add_theme_font_size_override("normal_font_size", 13)
+	_calc_label.add_theme_font_size_override("bold_font_size", 13)
+	calc_panel.add_child(_calc_label)
+	right.add_child(calc_panel)
 
+	_build_popup()
 	session.flow.changed.connect(_queue_refresh)
+	session.flow.rolled.connect(_on_rolled)
 	session.deck.deck_changed.connect(_queue_refresh)
 
 
@@ -98,117 +145,174 @@ func _queue_refresh() -> void:
 		refresh.call_deferred()
 
 
+# =========================================================================
+# 갱신
+# =========================================================================
+
 func refresh() -> void:
-	if session == null or _cards_row == null:
+	if session == null or _tray == null:
 		return
 	var flow: RoundFlow = session.flow
 	var deck: DeckManager = session.deck
 	if flow.phase != RoundFlow.Phase.PREP:
 		_swap_mode = false
+		_popup.visible = false
+	if flow.results.is_empty():
+		_felt_pos.clear()
+	_sheet.call("update_sheet", flow, session.yacht)
+
 	var info: Dictionary = LevelTable.get_upcoming_boss(flow.round_number)
-	_boss_label.text = "보스 정보 없음" if info.is_empty() else "⚠ %dR 보스 [%s] (%s)  %s" % [
+	_boss_label.text = "보스 정보 없음" if info.is_empty() else "⚠ %dR 보스 [%s] (%s)\n%s" % [
 		info["round"], info["name"], "이번 라운드!" if info["rounds_left"] == 0 else "%d라운드 후" % info["rounds_left"], info["gimmick"]]
 
-	UiKit.clear(_cards_row)
+	# 쟁반 위 출전 주사위
+	for t: Control in _tokens:
+		_tray.remove_child(t)
+		t.queue_free()
+	_tokens.clear()
 	for i: int in range(deck.active.size()):
-		_cards_row.add_child(_make_card(i))
+		var token: Control = _make_active_token(i)
+		_tray.add_child(token)
+		_tokens.append(token)
+	_layout_tokens.call_deferred(true)
 	_rebuild_bag_row()
-	_rebuild_yacht()
+	_update_calc()
 
 	match flow.phase:
 		RoundFlow.Phase.PREP:
-			_roll_button.text = "굴림"
+			_rolls_label.text = "굴리기 전"
+			_roll_button.text = "굴리기"
 			_roll_button.disabled = _swap_mode
-			_status_label.text = ("전체 교체: 가방 주사위와 바꿀 출전 주사위를 %d개 고르세요 (%d/%d)" % [_swap_need(), _swap_picks.size(), _swap_need()]) if _swap_mode \
-				else "준비: [▲][▼]로 가방 주사위와 교체하거나 인첸트를 옮긴 뒤 [굴림]. 굴린 주사위는 이번 라운드 동안 인첸트가 고정됩니다."
+			_status_label.text = ("바꿀 출전 주사위를 %d개 고르세요 (%d/%d)" % [_swap_need(), _swap_picks.size(), _swap_need()]) if _swap_mode \
+				else "[⇅ 교체]로 가방 주사위와 바꾸거나 인첸트를 옮긴 뒤 [굴리기]. 굴린 주사위는 이번 라운드 동안 인첸트가 고정됩니다."
 		RoundFlow.Phase.ROLLING:
-			_roll_button.text = "재굴림 (%d회 남음)" % flow.rerolls_left
+			_rolls_label.text = "재굴림 %d회 남음" % flow.rerolls_left
+			_roll_button.text = "다시 굴리기"
 			_roll_button.disabled = not flow.can_roll()
-			_status_label.text = "남길 주사위를 눌러 [고정]하고 재굴림하거나, 오른쪽 얏츠판 항목을 눌러 확정·기록하세요 (매 라운드 1항목 필수)."
+			_status_label.text = "남길 주사위를 눌러 고정(위 선반)하고 다시 굴리거나, 기록지의 노란 칸을 눌러 기록하세요."
 		RoundFlow.Phase.RECORDED:
+			_rolls_label.text = "기록 완료"
 			_roll_button.text = "확정됨"
 			_roll_button.disabled = true
-			_status_label.text = "%s 기록 +%s원 → [연병장에서 배치하기]로 소환하세요." % [
-				YachtBoard.CATEGORY_NAMES[flow.recorded_category], NumberFormatter.format_num(flow.recorded_gold)]
+			_status_label.text = "%s 기록 +%s원" % [YachtBoard.CATEGORY_NAMES[flow.recorded_category], NumberFormatter.format_num(flow.recorded_gold)]
 	_place_button.visible = flow.phase == RoundFlow.Phase.RECORDED
 
 
-# --- 주사위 카드 ---------------------------------------------------------------
-
-func _make_card(index: int) -> Control:
+func _make_active_token(index: int) -> Control:
 	var flow: RoundFlow = session.flow
 	var deck: DeckManager = session.deck
 	var dice: DiceInstance = deck.active[index]
 	var result: DiceRollResult = flow.results[index] if index < flow.results.size() else null
 	var held: bool = flow.held[index]
-	var picked: bool = _swap_mode and _swap_picks.has(index)
-	var border: Color = UiConfig.COLOR_SELECTED if picked else (UiConfig.COLOR_TARGET if held else Color.TRANSPARENT)
-	var card: PanelContainer = UiKit.panel(Color("323645"), border)
-	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var box: VBoxContainer = VBoxContainer.new()
-	box.add_theme_constant_override("separation", 2)
-	card.add_child(box)
-
-	# ▲▼ : 가방 주사위와 순환 교체
-	var arrows: HBoxContainer = HBoxContainer.new()
-	arrows.alignment = BoxContainer.ALIGNMENT_CENTER
-	var can_cycle: bool = deck.can_edit() and not deck.reserve_filled_indices().is_empty() and not _swap_mode
-	for dir: int in [-1, 1]:
-		var ab: Button = UiKit.button("▲" if dir < 0 else "▼", 16)
-		ab.disabled = not can_cycle
-		ab.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		ab.pressed.connect(func() -> void: deck.cycle_active(index, dir))
-		if tooltip != null:
-			tooltip.call("attach", ab, func() -> String: return "가방 주사위와 교체 (%s)\n첫 굴림 전에만 가능" % ("이전" if dir < 0 else "다음"))
-		arrows.add_child(ab)
-	box.add_child(arrows)
-
-	# 주사위 (굴림 중에는 눌러서 고정/해제, 전체 교체 중에는 선택)
-	var holder: PanelContainer = UiKit.panel(Color(0, 0, 0, 0))
-	holder.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	var icon: Control = ItemIcon.new()
-	icon.custom_minimum_size = Vector2(76, 76)
-	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	icon.call("setup", "dice", String(dice.data.id), Color("f4f1e8") if deck.can_edit_dice(dice) else Color("c9c4b8"))
-	holder.add_child(icon)
-	holder.gui_input.connect(func(e: InputEvent) -> void:
-		if e is InputEventMouseButton and (e as InputEventMouseButton).pressed and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
-			_on_card_pressed(index))
-	if tooltip != null:
-		tooltip.call("attach", holder, func() -> String: return _dice_tooltip(dice))
-	box.add_child(holder)
-
-	var value: Label = UiKit.label("-" if result == null else NumberFormatter.format_num(result.summon_value), 30)
-	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(value)
-	if held:
-		var hl: Label = UiKit.label("고정됨", 12, UiConfig.COLOR_TARGET)
-		hl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		box.add_child(hl)
-
-	var steps: RichTextLabel = RichTextLabel.new()
-	steps.bbcode_enabled = true
-	steps.fit_content = true
-	steps.scroll_active = false
-	steps.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	steps.add_theme_font_size_override("normal_font_size", 12)
-	steps.add_theme_font_size_override("bold_font_size", 12)
-	steps.text = _steps_bbcode(result) if result != null else ""
-	box.add_child(steps)
-
-	# 곡선 인첸트 슬롯 (예시 이미지처럼 주사위 아래에 작게)
-	var row: Control = SlotRow.new()
-	row.set("arc_depth", 10.0)
-	row.call("setup", dice, UiConfig.SLOT_RADIUS + 2.0, tooltip)
-	row.set("locked", not deck.can_edit_dice(dice))
-	row.set("selected_slot", _sel_slot if dice == _sel_dice else -1)
-	row.connect("slot_pressed", func(slot: int) -> void: _on_slot_pressed(dice, slot))
-	box.add_child(row)
-	return card
+	var border: Color = Color.TRANSPARENT
+	if _swap_mode and _swap_picks.has(index):
+		border = UiConfig.COLOR_SELECTED
+	elif held:
+		border = UiConfig.COLOR_TARGET
+	var face: String = String(dice.data.id) if result == null else str(result.raw_roll)
+	var value_text: String = "" if result == null else "→ %s명" % NumberFormatter.format_num(result.summon_value)
+	var token: Control = DieToken.new()
+	token.call("setup", dice, face, value_text, Color("ffe08a"),
+		flow.phase == RoundFlow.Phase.PREP, deck.can_edit() and not deck.reserve_filled_indices().is_empty() and not _swap_mode,
+		not deck.can_edit_dice(dice), border, _sel_slot if dice == _sel_dice else -1, false, tooltip)
+	token.set_meta("tooltip_text", _dice_tooltip(dice, result))
+	token.connect("pressed", func() -> void: _on_token_pressed(index))
+	token.connect("swap_pressed", func() -> void: _open_swap_popup(index))
+	token.connect("slot_pressed", func(slot: int) -> void: _on_slot_pressed(dice, slot))
+	return token
 
 
-func _on_card_pressed(index: int) -> void:
+## 토큰 위치: 굴리기 전 = 펠트에 한 줄 / 굴린 뒤 = 펠트에 흩어짐 / 고정 = 위 선반
+func _layout_tokens(animate: bool) -> void:
+	if _tokens.is_empty() or _tray.size.x <= 0.0:
+		return
 	var flow: RoundFlow = session.flow
+	var land: Rect2 = _tray.call("landing_rect")
+	var count: int = _tokens.size()
+	if _last_pos.size() != count:
+		_last_pos.resize(count)
+		_last_pos.fill(Vector2(-1, -1))
+	for i: int in range(count):
+		var token: Control = _tokens[i]
+		var target: Vector2
+		if flow.has_rolled() and flow.held[i]:
+			var slot: Rect2 = _tray.call("shelf_slot_rect", i, count)
+			target = slot.get_center() - token.size * 0.5
+		elif flow.has_rolled() and i < _felt_pos.size() and _felt_pos[i].x >= 0.0:
+			target = _felt_pos[i]
+		else:
+			var step: float = land.size.x / float(count)
+			target = Vector2(land.position.x + step * (float(i) + 0.5) - token.size.x * 0.5, land.get_center().y - token.size.y * 0.5)
+		if animate and _anim_indices.has(i):
+			# 굴림: 컵에서 튀어나와 펠트에 떨어진다
+			token.position = (_tray.call("cup_center") as Vector2) - token.size * 0.5
+			var tw: Tween = token.create_tween()
+			tw.tween_property(token, "position", target, ROLL_ANIM_TIME + 0.05 * float(i)).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		elif animate and _last_pos[i].x >= 0.0 and _last_pos[i] != target:
+			token.position = _last_pos[i]
+			var tw2: Tween = token.create_tween()
+			tw2.tween_property(token, "position", target, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		else:
+			token.position = target
+		_last_pos[i] = target
+	if not _anim_indices.is_empty():
+		_flicker_time = ROLL_ANIM_TIME
+		_flicker_tick = 0.0
+
+
+func _process(delta: float) -> void:
+	if _flicker_time <= 0.0:
+		return
+	_flicker_time -= delta
+	_flicker_tick -= delta
+	if _flicker_time <= 0.0:
+		# 연출 끝: 실제 결과 면 표시
+		for i: int in _anim_indices:
+			if i < _tokens.size() and i < session.flow.results.size():
+				_tokens[i].call("set_face", str(session.flow.results[i].raw_roll))
+		_anim_indices.clear()
+		return
+	if _flicker_tick <= 0.0:
+		_flicker_tick = FLICKER_INTERVAL
+		for i: int in _anim_indices:
+			if i < _tokens.size():
+				var faces: Array[int] = session.deck.active[i].data.faces
+				_tokens[i].call("set_face", str(faces[_vis_rng.randi_range(0, faces.size() - 1)]))
+
+
+## 굴림 직후: 고정 안 한 주사위들의 펠트 위치를 새로 정하고 연출 시작
+func _on_rolled(_results: Array[DiceRollResult]) -> void:
+	var flow: RoundFlow = session.flow
+	var count: int = session.deck.active.size()
+	if _felt_pos.size() != count:
+		_felt_pos.resize(count)
+		_felt_pos.fill(Vector2(-1, -1))
+	_anim_indices.clear()
+	var land: Rect2 = _tray.call("landing_rect")
+	var token_size: Vector2 = DieToken.SIZE_NORMAL
+	var columns: Array[int] = [0, 1, 2, 3, 4]
+	columns.shuffle()
+	var col_w: float = land.size.x / float(count)
+	var k: int = 0
+	for i: int in range(count):
+		if flow.held[i]:
+			continue
+		var col: int = columns[k % columns.size()]
+		k += 1
+		var x: float = land.position.x + col_w * (float(col) + 0.5) - token_size.x * 0.5 + _vis_rng.randf_range(-10.0, 10.0)
+		var y: float = land.position.y + _vis_rng.randf_range(0.0, maxf(0.0, land.size.y - token_size.y))
+		_felt_pos[i] = Vector2(x, y)
+		_anim_indices.append(i)
+	_focus_index = _anim_indices[0] if not _anim_indices.is_empty() else _focus_index
+
+
+# =========================================================================
+# 조작
+# =========================================================================
+
+func _on_token_pressed(index: int) -> void:
+	var flow: RoundFlow = session.flow
+	_focus_index = index
 	if _swap_mode:
 		if _swap_picks.has(index):
 			_swap_picks.erase(index)
@@ -217,6 +321,8 @@ func _on_card_pressed(index: int) -> void:
 		refresh.call_deferred()
 	elif flow.phase == RoundFlow.Phase.ROLLING:
 		flow.toggle_hold(index)
+	else:
+		_update_calc()
 
 
 func _on_slot_pressed(dice: DiceInstance, slot: int) -> void:
@@ -236,7 +342,41 @@ func _on_slot_pressed(dice: DiceInstance, slot: int) -> void:
 	refresh.call_deferred()
 
 
-# --- 가방 줄 · 전체 교체 --------------------------------------------------------
+# --- [⇅ 교체] 팝업: 가방 주사위 중 하나 선택 ------------------------------------
+
+func _build_popup() -> void:
+	_popup = UiKit.panel(Color(0.08, 0.09, 0.12, 0.97), UiConfig.COLOR_ACCENT)
+	_popup.set_anchors_preset(Control.PRESET_CENTER)
+	_popup.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_popup.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_popup.visible = false
+	add_child(_popup)
+	_popup_box = VBoxContainer.new()
+	_popup_box.add_theme_constant_override("separation", 6)
+	_popup.add_child(_popup_box)
+
+
+func _open_swap_popup(active_index: int) -> void:
+	var deck: DeckManager = session.deck
+	UiKit.clear(_popup_box)
+	_popup_box.add_child(UiKit.label("출전 %d (%s)와 바꿀 가방 주사위를 고르세요" % [active_index + 1, deck.active[active_index].data.display_name], 15, UiConfig.COLOR_ACCENT))
+	for j: int in deck.reserve_filled_indices():
+		var d: DiceInstance = deck.reserve[j]
+		var b: Button = UiKit.button("%s   ·   인첸트: %s" % [d.data.display_name, _enchant_summary(d)], 14)
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		b.pressed.connect(func() -> void:
+			deck.swap_slots(active_index, j)
+			_popup.visible = false)
+		_popup_box.add_child(b)
+	var cancel: Button = UiKit.button("취소", 14)
+	cancel.pressed.connect(func() -> void: _popup.visible = false)
+	_popup_box.add_child(cancel)
+	_popup.reset_size()
+	_popup.visible = true
+
+
+# --- 대기 주사위(가방) 줄 · 전체 교체 ------------------------------------------
 
 func _swap_need() -> int:
 	return mini(session.deck.reserve_filled_indices().size(), session.deck.active.size())
@@ -245,32 +385,29 @@ func _swap_need() -> int:
 func _rebuild_bag_row() -> void:
 	var deck: DeckManager = session.deck
 	UiKit.clear(_bag_row)
-	_bag_row.add_child(UiKit.label("%s\n%d/%d칸" % [session.shop.get_bag_name(), deck.reserve_filled_indices().size(), deck.reserve_unlocked], 12, UiConfig.COLOR_ACCENT))
+	_bag_row.add_child(UiKit.label("대기 주사위\n%s %d/%d칸" % [session.shop.get_bag_name(), deck.reserve_filled_indices().size(), deck.reserve_unlocked], 12, UiConfig.COLOR_ACCENT))
 	for i: int in range(deck.reserve_unlocked):
 		var d: DiceInstance = deck.reserve[i]
-		var cell: VBoxContainer = VBoxContainer.new()
 		if d == null:
-			cell.add_child(UiKit.label("빈칸", 12, UiConfig.COLOR_DIM))
-		else:
-			var icon: Control = ItemIcon.new()
-			icon.custom_minimum_size = Vector2(44, 44)
-			icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-			icon.call("setup", "dice", String(d.data.id), Color("f4f1e8"))
-			var holder: PanelContainer = UiKit.panel(Color(0, 0, 0, 0))
-			holder.add_child(icon)
-			if tooltip != null:
-				tooltip.call("attach", holder, func() -> String: return _dice_tooltip(d))
-			cell.add_child(holder)
-			var row: Control = SlotRow.new()
-			row.call("setup", d, UiConfig.SLOT_RADIUS - 2.0, tooltip)
-			row.set("selected_slot", _sel_slot if d == _sel_dice else -1)
-			row.connect("slot_pressed", func(slot: int) -> void: _on_slot_pressed(d, slot))
-			cell.add_child(row)
-		_bag_row.add_child(cell)
+			var empty: Label = UiKit.label("빈칸", 12, UiConfig.COLOR_DIM)
+			empty.custom_minimum_size = DieToken.SIZE_SMALL
+			empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			empty.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			_bag_row.add_child(empty)
+			continue
+		var token: Control = DieToken.new()
+		token.call("setup", d, String(d.data.id), "", Color.WHITE, false, false,
+			not deck.can_edit_dice(d), Color.TRANSPARENT, _sel_slot if d == _sel_dice else -1, true, tooltip)
+		token.set_meta("tooltip_text", _dice_tooltip(d, null))
+		token.connect("slot_pressed", func(slot: int) -> void: _on_slot_pressed(d, slot))
+		_bag_row.add_child(token)
 	var spacer: Control = Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_bag_row.add_child(spacer)
 	var need: int = _swap_need()
+	var buttons: VBoxContainer = VBoxContainer.new()
+	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	_bag_row.add_child(buttons)
 	if _swap_mode:
 		var ok: Button = UiKit.button("교체 확정 (%d/%d)" % [_swap_picks.size(), need], 14)
 		ok.disabled = _swap_picks.size() != need
@@ -279,15 +416,16 @@ func _rebuild_bag_row() -> void:
 			_swap_mode = false
 			_swap_picks.clear()
 			refresh.call_deferred())
-		_bag_row.add_child(ok)
+		buttons.add_child(ok)
 		var cancel: Button = UiKit.button("취소", 14)
 		cancel.pressed.connect(func() -> void:
 			_swap_mode = false
 			_swap_picks.clear()
 			refresh.call_deferred())
-		_bag_row.add_child(cancel)
+		buttons.add_child(cancel)
 	else:
 		var all: Button = UiKit.button("전체 교체", 15)
+		all.custom_minimum_size = Vector2(110, 44)
 		all.disabled = not deck.can_edit() or need == 0
 		all.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		all.pressed.connect(func() -> void:
@@ -299,46 +437,24 @@ func _rebuild_bag_row() -> void:
 			refresh.call_deferred())
 		if tooltip != null:
 			tooltip.call("attach", all, func() -> String:
-				return "출전 주사위와 가방 주사위를 한 번에 교체\n가방 주사위가 5개보다 적으면 바꿀 출전 주사위를 그 수만큼 고릅니다")
-		_bag_row.add_child(all)
+				return "출전 주사위와 대기 주사위를 한 번에 교체\n대기 주사위가 5개보다 적으면 바꿀 출전 주사위를 그 수만큼 고릅니다")
+		buttons.add_child(all)
 
 
-# --- 얏츠판 -------------------------------------------------------------------
+# --- 표시 -----------------------------------------------------------------------
 
-func _rebuild_yacht() -> void:
-	UiKit.clear(_yacht_box)
+## 오른쪽 "계산 과정": 마지막으로 누른 주사위의 연산 단계 (메아리 발동·미발동 표기)
+func _update_calc() -> void:
 	var flow: RoundFlow = session.flow
-	var board: YachtBoard = session.yacht
-	_yacht_box.add_child(UiKit.label("얏츠판 (1의 자리 판정)", 16, UiConfig.COLOR_ACCENT))
-	_yacht_box.add_child(UiKit.label("프레스티지 %d · 보상 ×%d · %d/10칸" % [
-		board.prestige_level, board.get_reward_multiplier(), board.recorded.size()], 12, UiConfig.COLOR_DIM))
-	if flow.has_rolled():
-		_yacht_box.add_child(UiKit.label("1의 자리: " + str(YachtBoard.to_digits(flow.get_summon_values())), 12, UiConfig.COLOR_DIM))
-	var preview: Dictionary = flow.get_yacht_preview()
-	for category: int in YachtBoard.Category.values():
-		var cat_name: String = YachtBoard.CATEGORY_NAMES[category]
-		var b: Button = UiKit.button("", 14)
-		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		if board.is_recorded(category):
-			b.text = "✔ %s  %s원" % [cat_name, NumberFormatter.format_num(board.recorded[category])]
-			b.disabled = true
-		elif preview.has(category):
-			var gold: int = preview[category]
-			b.text = "%s  →  %s원" % [cat_name, NumberFormatter.format_num(gold)]
-			if gold > 0:
-				b.add_theme_color_override("font_color", Color("7bd88f"))
-			b.disabled = flow.phase != RoundFlow.Phase.ROLLING
-			b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		else:
-			b.text = cat_name
-			b.disabled = true
-		b.pressed.connect(func() -> void: flow.record_yacht(category))
-		_yacht_box.add_child(b)
+	var i: int = clampi(_focus_index, 0, session.deck.active.size() - 1)
+	var dice: DiceInstance = session.deck.active[i]
+	var head: String = "[b]계산 과정 · 출전 %d (%s)[/b]\n" % [i + 1, dice.data.display_name]
+	if i >= flow.results.size():
+		_calc_label.text = head + "[color=#9aa0b4]굴린 뒤 표시됩니다.\n인첸트: %s[/color]" % _enchant_summary(dice)
+		return
+	_calc_label.text = head + _steps_bbcode(flow.results[i])
 
 
-# --- 표시 헬퍼 -----------------------------------------------------------------
-
-## 연산 로그 → BBCode (메아리 발동·미발동을 확실히 표기)
 func _steps_bbcode(result: DiceRollResult) -> String:
 	var lines: PackedStringArray = []
 	for entry: Dictionary in result.logs:
@@ -346,31 +462,33 @@ func _steps_bbcode(result: DiceRollResult) -> String:
 		var op: String = entry["op"]
 		var value_text: String = NumberFormatter.format_fixed(entry["value"])
 		if entry["skipped"]:
-			lines.append("[color=#ff7b7b]✖ %s 미발동[/color]" % source)
+			lines.append("[color=#ff7b7b]✖ %s 미발동 (%s)[/color]" % [source, entry["reason"]])
 		elif source == "원시 눈금":
-			lines.append("[b]눈금 %s[/b]" % op)
+			lines.append("눈금 [b]%s[/b]" % op)
 		elif op.begins_with("면 "):
-			lines.append("[color=#9aa0b4]%s[/color]" % source)
+			lines.append("[color=#9aa0b4]%s %s[/color]" % [source, op])
 		elif source.contains(" → "):
 			lines.append("[color=#c9a0ff]↻ %s[/color] %s = %s" % [source.get_slice(" → ", 0), op, value_text])
 		else:
-			lines.append("%s = %s%s" % [op, value_text, " [color=#ffae57](1로 보정)[/color]" if entry["clamped"] else ""])
+			lines.append("%s %s = %s%s" % [source, op, value_text, " [color=#ffae57](1로 보정)[/color]" if entry["clamped"] else ""])
 	if result.final_value % FixedNum.SCALE != 0:
-		lines.append("[color=#9aa0b4]반올림 → %d[/color]" % result.summon_value)
+		lines.append("[color=#9aa0b4]반올림[/color]")
+	lines.append("[color=#ffe08a][b]→ 소환 %s명[/b][/color]" % NumberFormatter.format_num(result.summon_value))
 	return "\n".join(lines)
 
 
-func _dice_tooltip(dice: DiceInstance) -> String:
+func _dice_tooltip(dice: DiceInstance, result: DiceRollResult) -> String:
+	var faces: String = str(dice.data.faces) if dice.data.faces.size() <= 8 else "1 ~ %d" % dice.data.faces.size()
+	var text: String = "%s\n면: %s\n인첸트: %s" % [dice.data.display_name, faces, _enchant_summary(dice)]
+	if result != null:
+		text += "\n눈금 %d → 소환 %s명" % [result.raw_roll, NumberFormatter.format_num(result.summon_value)]
+		if session.flow.phase == RoundFlow.Phase.ROLLING:
+			text += "\n클릭: 고정 / 해제"
+	return text
+
+
+func _enchant_summary(dice: DiceInstance) -> String:
 	var names: PackedStringArray = []
 	for inst: EnchantInstance in dice.get_enchants():
 		names.append(inst.get_display_name())
-	var faces: String = str(dice.data.faces) if dice.data.faces.size() <= 8 else "1 ~ %d" % dice.data.faces.size()
-	var outcomes: Dictionary = dice.preview_outcomes(session.get_round())
-	var low: int = FixedNum.MAX
-	var high: int = 0
-	for f: int in outcomes.keys():
-		low = mini(low, outcomes[f])
-		high = maxi(high, outcomes[f])
-	return "%s\n면: %s\n인첸트: %s\n예상 범위 %s ~ %s" % [
-		dice.data.display_name, faces, " → ".join(names) if names.size() > 0 else "없음",
-		NumberFormatter.format_num(low), NumberFormatter.format_num(high)]
+	return "없음" if names.is_empty() else " → ".join(names)
